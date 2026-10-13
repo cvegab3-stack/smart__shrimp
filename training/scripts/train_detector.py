@@ -1,0 +1,1 @@
+# Entrena el detector YOLO

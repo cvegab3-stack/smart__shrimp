@@ -1,0 +1,7 @@
+# Catálogo único de clases (lo leen entrenamiento y microservicio), en grupos independientes:
+#   deteccion: camaron, no_camaron (rechazo)
+#   integridad: completo, sin_cabeza, sin_cola
+#   presentacion: con_cascara, pelado
+#   condicion_visual (RF-10): fresco, intermedio, deteriorado, no_concluyente
+# Reglas: sin_cabeza, sin_cola y pelado NO son condición visual y no se convierten en ella;
+# no_concluyente es un resultado por baja confianza, no una clase de entrenamiento.

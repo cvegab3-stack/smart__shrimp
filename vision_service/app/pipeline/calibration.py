@@ -1,0 +1,1 @@
+# Conversión píxeles a centímetros

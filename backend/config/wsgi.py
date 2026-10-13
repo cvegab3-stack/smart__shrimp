@@ -1,0 +1,1 @@
+# Entrada WSGI para gunicorn
