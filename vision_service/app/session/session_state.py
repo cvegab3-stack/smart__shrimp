@@ -1,1 +1,23 @@
-# Conteo, registros e imagen final anotada en memoria
+"""Estado efímero de una sesión de visión dentro del proceso M3."""
+
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass(slots=True)
+class VisionSession:
+    """Configuración y datos transitorios de un intento de análisis."""
+
+    analysis_id: str
+    attempt: int
+    calibration_version: int
+    reference_length_cm: float | None = None
+    reference_pixels: int | None = None
+    size_ranges: dict[str, dict[str, float | None]] = field(default_factory=dict)
+    detection_confidence: float = 0.0
+    visual_condition_confidence: float = 0.0
+    min_track_hits: int = 1
+    frame_count: int = 0
+    detections: dict[str, dict[str, Any]] = field(default_factory=dict)
+    rejected_count: int = 0
+    counted_track_ids: set[str] = field(default_factory=set)
