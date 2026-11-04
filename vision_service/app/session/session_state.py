@@ -3,6 +3,10 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.pipeline.counting_line import CountingLine
+from app.pipeline.tracker import IoUTracker
+from app.pipeline.voting import FrameVoting
+
 
 @dataclass(slots=True)
 class VisionSession:
@@ -17,7 +21,9 @@ class VisionSession:
     detection_confidence: float = 0.0
     visual_condition_confidence: float = 0.0
     min_track_hits: int = 1
-    frame_count: int = 0
     detections: dict[str, dict[str, Any]] = field(default_factory=dict)
     rejected_count: int = 0
-    counted_track_ids: set[str] = field(default_factory=set)
+    # Seguimiento entre fotogramas; el pipeline los crea con el primer fotograma (la línea depende de su ancho).
+    tracker: IoUTracker | None = None
+    counting_line: CountingLine | None = None
+    voting: FrameVoting = field(default_factory=FrameVoting)

@@ -1,1 +1,38 @@
-<!-- Pantalla de login -->
+{% extends "base.html" %}
+{% block title %}Iniciar sesión · SMART SHRIMP{% endblock %}
+{% block content %}
+{% if request.GET.role == 'operador' or request.GET.role == 'control_calidad' or request.GET.role == 'supervisor' or request.GET.role == 'administrador' %}
+<main class="login-page">
+  <section class="login-art">
+    <a class="brand" href="{% url 'login' %}"><span class="brand-mark" aria-hidden="true">◖</span><span><strong>SMART SHRIMP</strong><small>Detección inteligente de camarones</small></span></a>
+    <div class="login-copy"><p class="profiles-eyebrow">VISIÓN ARTIFICIAL · TRAZABILIDAD</p><h1>Inspección clara, resultados organizados.</h1><p>Registra lotes, analiza imágenes o video y consulta los resultados desde un solo lugar.</p></div>
+    <span class="login-visual" aria-hidden="true">♧</span>
+  </section>
+  <section class="login-panel"><div class="login-card">
+    <div class="selected-role"><span>Perfil seleccionado</span><strong>{% if request.GET.role == 'operador' %}Operador{% elif request.GET.role == 'control_calidad' %}Control de calidad{% elif request.GET.role == 'supervisor' %}Supervisor{% else %}Administrador{% endif %}</strong></div>
+    <p class="eyebrow">ACCESO SEGURO</p><h2>Iniciar sesión</h2><p>Ingresa con las credenciales asignadas. El sistema aplica el rol asociado a tu cuenta.</p>
+    {% if error_message %}<div class="alert alert-error" role="alert">{{ error_message }}</div>{% endif %}
+    <form method="post" action="?role={{ request.GET.role }}" class="form-grid">{% csrf_token %}
+      <div class="field"><label for="username">Usuario</label><input id="username" name="username" autocomplete="username" required autofocus></div>
+      <div class="field"><label for="password">Contraseña</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+    </form><p class="notice" style="margin-top:20px">La cuenta se bloquea durante 15 minutos después de tres intentos fallidos.</p>
+    <a class="login-back" href="{% url 'login' %}">← Volver a seleccionar perfil</a>
+  </div></section>
+</main>
+{% else %}
+<main class="profiles-page">
+  <div class="profiles-scene" aria-hidden="true"><div class="profiles-scene-brand"><div class="brand-mark">◖</div><div><strong>SMART <span>SHRIMP</span></strong><small>Detección inteligente de camarones</small></div></div><div class="profiles-scene-copy"><span>CONTROL DE CALIDAD ASISTIDO</span><h1>Visión precisa para decisiones confiables.</h1><p>Analiza, monitorea y gestiona cada lote desde un solo lugar.</p></div><div class="water-orb water-orb-one"></div><div class="water-orb water-orb-two"></div></div>
+  <div class="profiles-overlay"><section class="profiles-modal" aria-labelledby="profiles-title">
+    <header class="profiles-header"><div class="profiles-eyebrow"><span></span> ACCESO AL SISTEMA</div><h1 id="profiles-title">PERFILES</h1><p class="profiles-subtitle">Selecciona el perfil asignado a tu cuenta en <strong>SMART SHRIMP</strong></p><p class="profiles-helper">El acceso y los permisos efectivos se validan con tu usuario.</p></header>
+    <div class="profile-grid profile-grid-four">
+      <article class="profile-card"><span class="profile-number">01</span><div class="profile-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="16" width="44" height="32" rx="7"/><circle cx="32" cy="32" r="9"/><path d="M18 16l4-6h20l4 6M15 54h34M24 48v6M40 48v6"/></svg></div><h2>OPERADOR</h2><div class="profile-line"></div><p>Realiza análisis de camarones por imagen o cámara en vivo.</p><a class="profile-enter" href="{% url 'login' %}?role=operador">Ingresar <span>→</span></a></article>
+      <article class="profile-card featured"><span class="profile-number">02</span><div class="profile-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 16h44v31H10zM18 39l8-9 8 5 12-14M18 54h28M32 47v7"/><circle cx="46" cy="21" r="2"/></svg></div><h2>CONTROL DE CALIDAD</h2><div class="profile-line"></div><p>Revisa el historial y consulta resultados de lotes.</p><a class="profile-enter" href="{% url 'login' %}?role=control_calidad">Ingresar <span>→</span></a></article>
+      <article class="profile-card"><span class="profile-number">03</span><div class="profile-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="9" y="10" width="46" height="36" rx="7"/><path d="M17 37l9-10 8 6 12-15M17 54h30M32 46v8"/><circle cx="46" cy="18" r="3"/></svg></div><h2>SUPERVISOR</h2><div class="profile-line"></div><p>Consulta resultados, lotes analizados y reportes.</p><a class="profile-enter" href="{% url 'login' %}?role=supervisor">Ingresar <span>→</span></a></article>
+      <article class="profile-card"><span class="profile-number">04</span><div class="profile-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="9"/><path d="M32 8v7M32 49v7M8 32h7M49 32h7M15 15l5 5M44 44l5 5M49 15l-5 5M20 44l-5 5"/><circle cx="32" cy="32" r="20"/></svg></div><h2>ADMINISTRADOR</h2><div class="profile-line"></div><p>Gestiona usuarios, calibración y configuración.</p><a class="profile-enter" href="{% url 'login' %}?role=administrador">Ingresar <span>→</span></a></article>
+    </div>
+    <footer class="profiles-footer"><span>SMART SHRIMP · Plataforma de análisis visual</span><span>Acceso seguro por perfiles</span></footer>
+  </section></div>
+</main>
+{% endif %}
+{% endblock %}

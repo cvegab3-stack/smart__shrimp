@@ -112,6 +112,18 @@ def test_video_track_is_registered_only_after_minimum_frames():
     assert len(session.detections) == 1
 
 
+def test_tracking_state_belongs_to_the_session():
+    pipeline = _pipeline_returning((10.0, 10.0, 40.0, 30.0))
+    first = VisionSession("a3", 1, 1, detection_confidence=0.5)
+    pipeline.process(first, "f1", _blank_frame())
+    pipeline.process(first, "f2", _blank_frame())
+    # Misma clave tras reiniciar el registro: no hereda tracks ni impactos de la sesión anterior.
+    restarted = VisionSession("a3", 1, 1, detection_confidence=0.5)
+    pipeline.process(restarted, "f1", _blank_frame())
+    assert list(restarted.detections) == ["track-1"]
+    assert restarted.tracker is not first.tracker
+
+
 def test_oversized_box_is_rejected_not_counted():
     pipeline = _pipeline_returning((0.0, 0.0, 100.0, 90.0))
     session = VisionSession("a2", 1, 1, detection_confidence=0.5, visual_condition_confidence=0.7)

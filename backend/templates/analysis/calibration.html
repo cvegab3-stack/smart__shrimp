@@ -1,1 +1,31 @@
-<!-- Pantalla de calibración -->
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Calibración · SMART SHRIMP{% endblock %}
+{% block top_title %}Parámetros de medición{% endblock %}
+{% block content %}
+<main class="page">
+  <header class="page-head"><div><p class="eyebrow">CONFIGURACIÓN</p><h1>Calibración y umbrales</h1><p>Las referencias aplicadas a análisis anteriores se conservan como versiones históricas.</p></div></header>
+  {% if request.user.role == 'operador' %}<div class="alert alert-info"><strong>Vista de solo lectura:</strong> puedes consultar la referencia, pero solo administración puede cambiarla.</div>{% endif %}
+  <section class="settings-grid">
+    <article class="card"><div class="card-head"><div><h2>Referencia vigente</h2><p>Configurada por administración.</p></div><span class="settings-icon">⌖</span></div>
+      {% if calibration %}<p><span class="chip chip-green">Activa · versión {{ calibration.version }}</span></p><div class="metric-list"><div class="metric-row"><span>Medida de referencia</span><strong>{{ calibration.reference_length_cm }} cm</strong></div><div class="metric-row"><span>Medida en píxeles</span><strong>{{ calibration.reference_pixels }} px</strong></div></div><h3 class="section-subtitle">Rangos de tamaño</h3><div class="size-bars">{% for label,range in calibration.size_ranges.items %}<div class="metric-row"><span>{{ label|title }}</span><strong>{% if range.min_cm != None %}{{ range.min_cm }}{% else %}—{% endif %} – {% if range.max_cm != None %}{{ range.max_cm }}{% else %}—{% endif %} cm</strong></div>{% endfor %}</div>
+      {% else %}<div class="empty"><div><div class="empty-icon">⌖</div><h2>Sin calibración vigente</h2><p>Configura una referencia antes de iniciar análisis.</p></div></div>{% endif %}
+    </article>
+    {% if request.user.role == 'administrador' %}
+    <article class="card"><div class="card-head"><div><h2>Registrar nueva versión</h2><p>Ingresa una referencia física y bandas sin solapamiento.</p></div><span class="chip chip-blue">Nueva versión</span></div>
+      <form id="calibration-form" class="form-grid">{% csrf_token %}
+        <div class="form-grid form-grid-two"><div class="field"><label for="reference-length">Medida de referencia (cm)</label><input id="reference-length" name="reference_length_cm" type="number" min="0.001" step="0.001" required></div><div class="field"><label for="reference-pixels">Medida equivalente (px)</label><input id="reference-pixels" name="reference_pixels" type="number" min="1" step="1" required></div></div>
+        <h3 class="section-subtitle">Rangos de tamaño (cm)</h3>
+        {% for cat,label in categories %}<div class="range-row"><strong>{{ label }}</strong><div class="field"><label for="{{ cat }}-min">Mínimo</label><input id="{{ cat }}-min" type="number" step="0.01" placeholder="Sin límite"></div><div class="field"><label for="{{ cat }}-max">Máximo</label><input id="{{ cat }}-max" type="number" step="0.01" placeholder="Sin límite"></div></div>{% endfor %}
+        <div class="notice"><strong>Información importante:</strong> los límites son opcionales; el servidor valida que las bandas no se crucen.</div>
+        <button class="btn btn-primary" type="submit">Guardar nueva versión</button><div id="calibration-message" role="status"></div>
+      </form>
+    </article>
+    <article class="card"><div class="card-head"><div><h2>Umbrales del procesamiento</h2><p>Confianza mínima para detección y evaluación visual.</p></div><span class="settings-icon">◎</span></div>
+      <form id="threshold-form" class="form-grid">{% csrf_token %}<div class="form-grid form-grid-two"><div class="field"><label for="detection-threshold">Confianza mínima de detección</label><input id="detection-threshold" type="number" min="0" max="1" step="0.01" value="{% if threshold_profile %}{{ threshold_profile.detection_confidence }}{% endif %}" required></div><div class="field"><label for="condition-threshold">Confianza mínima de condición visual</label><input id="condition-threshold" type="number" min="0" max="1" step="0.01" value="{% if threshold_profile %}{{ threshold_profile.visual_condition_confidence }}{% endif %}" required></div></div><button class="btn btn-teal" type="submit">Guardar umbrales</button><div id="threshold-message" role="status"></div></form>
+    </article>
+    {% endif %}
+  </section>
+</main>
+{% if request.user.role == 'administrador' %}<script src="{% static 'js/calibration.js' %}" defer></script>{% endif %}
+{% endblock %}

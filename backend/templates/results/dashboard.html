@@ -1,1 +1,27 @@
-<!-- Panel de resultados (totales por condición visual con no concluyentes). -->
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Resultados · SMART SHRIMP{% endblock %}
+{% block top_title %}Resultados del análisis{% endblock %}
+{% block content %}
+<main class="page">
+  <header class="page-head"><div><p class="eyebrow">DETALLE DEL LOTE</p><h1>{{ analysis.batch_code }}</h1><p>{{ analysis.created_at|date:'d/m/Y H:i' }} · {{ analysis.get_source_display }} · intento {{ analysis.current_attempt }}</p></div><div class="head-actions">{% if request.user.role == 'supervisor' and analysis.status == 'finalizado' %}<a class="btn btn-secondary" href="/api/history/{{ analysis.pk }}/export.csv/">Exportar CSV</a><a class="btn btn-secondary" href="/api/history/{{ analysis.pk }}/export.pdf/">Exportar PDF</a>{% endif %}<a class="btn btn-secondary" href="{% url 'history-page' %}">Volver al historial</a></div></header>
+  <div class="stepper" aria-label="Pasos del análisis"><div class="step done"><span class="step-number">✓</span><span>Identificación</span></div><div class="step done"><span class="step-number">✓</span><span>Captura</span></div><div class="step active"><span class="step-number">3</span><span>Resultados</span></div></div>
+  <span class="chip {% if analysis.status == 'finalizado' %}chip-green{% elif analysis.status == 'con_error' %}chip-red{% else %}chip-blue{% endif %}">{{ analysis.get_status_display }}</span>
+  {% if analysis.status == 'con_error' %}<div class="alert alert-error" role="alert"><strong>{{ analysis.error_code }}</strong> {{ analysis.error_message }}</div>{% endif %}
+  <section class="grid kpi-grid" aria-label="Resumen del análisis">
+    <article class="kpi"><div class="kpi-icon">◖</div><label>Camarones detectados</label><strong>{{ analysis.shrimp_count }}</strong><small>Conteo del servicio de visión</small></article>
+    <article class="kpi"><div class="kpi-icon">✓</div><label>Registros individuales</label><strong>{{ results|length }}</strong><small>Resultados guardados</small></article>
+    <article class="kpi"><div class="kpi-icon">⌖</div><label>Calibración aplicada</label><strong>v{{ analysis.calibration.version }}</strong><small>Congelada al iniciar el análisis</small></article>
+    <article class="kpi"><div class="kpi-icon">↻</div><label>Intento</label><strong>{{ analysis.current_attempt }}</strong><small>Último procesamiento</small></article>
+  </section>
+  <section class="grid result-grid">
+    <article class="card"><div class="card-head"><div><h2>Referencia visual del prototipo</h2><p>No corresponde a la imagen de entrada de este análisis.</p></div></div><div class="vision-frame result-photo"><img src="{% static 'img/shrimp-inspection.png' %}" alt="Ilustración de referencia de camarones"></div></article>
+    <article class="card"><div class="card-head"><div><h2>Calibración</h2><p>Referencia conservada con el lote.</p></div></div><div class="metric-list"><div class="metric-row"><span>Longitud de referencia</span><strong>{{ analysis.calibration.reference_length_cm }} cm</strong></div><div class="metric-row"><span>Referencia en píxeles</span><strong>{{ analysis.calibration.reference_pixels }} px</strong></div><div class="metric-row"><span>Rechazados por calidad</span><strong>{{ analysis.rejected_count }}</strong></div></div><div class="notice"><strong>Información importante:</strong> peso y longitud son valores estimados. La condición visual no reemplaza análisis microbiológicos, químicos ni sanitarios.</div></article>
+    <article class="card span-2"><div class="card-head"><div><h2>Detalle por camarón</h2><p>Resultados persistidos para este análisis.</p></div></div>
+      {% if results %}<div class="table-wrap"><table class="data-table"><thead><tr><th>ID de seguimiento</th><th>Integridad</th><th>Presentación</th><th>Condición visual</th><th>Longitud</th><th>Tamaño</th><th>Peso estimado</th></tr></thead><tbody>
+      {% for row in results %}<tr><td><strong>{{ row.track_id }}</strong></td><td>{{ row.get_integrity_display|default:row.integrity|default:'No disponible' }}</td><td>{{ row.get_presentation_display|default:row.presentation|default:'No disponible' }}</td><td><span class="chip {% if row.visual_condition == 'fresco' %}chip-green{% elif row.visual_condition == 'deteriorado' %}chip-red{% elif row.visual_condition == 'intermedio' %}chip-amber{% else %}chip-blue{% endif %}">{% if row.visual_condition == 'fresco' %}Fresco{% elif row.visual_condition == 'intermedio' %}Intermedio{% elif row.visual_condition == 'deteriorado' %}Deteriorado{% else %}No concluyente{% endif %}</span></td><td>{% if row.length_cm != None %}{{ row.length_cm|floatformat:2 }} cm{% else %}No disponible{% endif %}</td><td>{{ row.get_size_category_display|default:row.size_category|default:'No disponible' }}</td><td>{% if row.estimated_weight_g != None %}{{ row.estimated_weight_g|floatformat:2 }} g · valor estimado{% else %}No disponible · valor estimado{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="empty"><div><div class="empty-icon">◖</div><h2>No hay registros por ejemplar</h2><p>Este análisis no tiene resultados completos guardados.</p></div></div>{% endif %}
+    </article>
+  </section>
+</main>
+{% endblock %}

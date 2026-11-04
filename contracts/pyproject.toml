@@ -1,1 +1,13 @@
-# Hace instalable el paquete en Django y en el microservicio
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-shrimp-contracts"
+version = "0.1.0"
+description = "Contratos de datos compartidos por Django y el servicio de visión."
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0,<7"]
+
+[tool.setuptools.package-data]
+shrimp_contracts = ["class_catalog.yaml"]

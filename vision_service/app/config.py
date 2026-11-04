@@ -4,8 +4,10 @@ import os
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parent
+# Modelo distribuido con la aplicación; no depende del dataset ni de training/runs/.
+DEFAULT_DETECTOR_WEIGHTS = APP_DIR.parents[1] / "models" / "detector" / "best.pt"
 VISION_SERVICE_TOKEN_SECRET = os.getenv("VISION_SERVICE_TOKEN_SECRET", "")
-DETECTOR_WEIGHTS = os.getenv("DETECTOR_WEIGHTS", "")
+DETECTOR_WEIGHTS = os.getenv("DETECTOR_WEIGHTS") or str(DEFAULT_DETECTOR_WEIGHTS)
 COLOR_MODEL_PATH = os.getenv("COLOR_MODEL_PATH", "")
 WEIGHT_MODEL_PATH = os.getenv("WEIGHT_MODEL_PATH", "")
 TRACK_IOU_THRESHOLD = float(os.getenv("TRACK_IOU_THRESHOLD", "0.3"))

@@ -13,7 +13,6 @@ from app.pipeline.counting_line import CountingLine
 from app.pipeline.detector import YoloDetector
 from app.pipeline.measurement import WeightEstimator, measure_detection
 from app.pipeline.tracker import IoUTracker
-from app.pipeline.voting import FrameVoting
 from shrimp_contracts.catalog import classes_for
 
 
@@ -28,9 +27,6 @@ class FramePipeline:
         self.detector = YoloDetector(DETECTOR_WEIGHTS)
         self.color = ColorClassifier(COLOR_MODEL_PATH)
         self.weight = WeightEstimator(WEIGHT_MODEL_PATH)
-        self._trackers: dict[tuple[str, int], IoUTracker] = {}
-        self._lines: dict[tuple[str, int], CountingLine] = {}
-        self._voting: dict[tuple[str, int], FrameVoting] = {}
 
     @staticmethod
     def decode_image(image_base64: str):
@@ -47,13 +43,12 @@ class FramePipeline:
     def process(self, session, frame_id: str, image_base64: str) -> dict:
         """Devuelve detecciones y contadores del fotograma."""
         image = self.decode_image(image_base64)
-        session.frame_count += 1
-        key = (session.analysis_id, session.attempt)
         raw_detections = self.detector.detect(image, session.detection_confidence)
         height, width = image.shape[:2]
-        tracker = self._trackers.setdefault(key, IoUTracker(TRACK_IOU_THRESHOLD))
-        line = self._lines.setdefault(key, CountingLine(width * COUNT_LINE_RATIO))
-        voting = self._voting.setdefault(key, FrameVoting())
+        if session.tracker is None:
+            session.tracker = IoUTracker(TRACK_IOU_THRESHOLD)
+            session.counting_line = CountingLine(width * COUNT_LINE_RATIO)
+        tracker, line, voting = session.tracker, session.counting_line, session.voting
         catalog_classes = set(classes_for("deteccion"))
         max_area = MAX_BOX_AREA_RATIO * width * height
         shrimp = [item for item in raw_detections if item["class_name"] == "camaron"]

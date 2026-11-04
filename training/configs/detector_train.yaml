@@ -1,1 +1,37 @@
-# Hiperparámetros del detector
+# Hiperparámetros del detector de una clase "camaron" (Ultralytics YOLO).
+# Lo lee training/scripts/train_detector.py; las rutas relativas se resuelven desde la raíz del repositorio.
+# Cualquier clave de "train" se pasa tal cual a model.train(); los argumentos de línea de comandos la sobrescriben.
+
+# Ruta relativa a la carpeta de datos externa (--data-dir, SMART_SHRIMP_DATA_DIR o ..\dataset junto al proyecto;
+# si no existe, datasets/ del proyecto). Ver training/scripts/data_paths.py.
+# detect_grouped_reviewed_v1: partición agrupada por sesión con etiquetas revisadas (la de models/detector/best.pt).
+# detect/data_grouped.yaml: misma partición sin revisar; detect/data_original_split.yaml: con fuga, solo para comparar.
+data: shrimp_roboflow_v4/detect_grouped_reviewed_v1/data.yaml
+
+# Pesos iniciales: archivo .pt LOCAL o un .yaml de arquitectura para entrenar desde cero.
+# El script nunca descarga pesos: si el .pt no existe, se detiene. Vacío = obligatorio pasar --model.
+model: ""
+
+# Carpeta de resultados (ignorada por git). Modelo esperado: <project>/<name>/weights/best.pt
+project: training/runs/detector
+name: camaron_v1
+
+train:
+  epochs: 100
+  imgsz: 640
+  batch: 16
+  patience: 20
+  seed: 0
+  deterministic: true
+  workers: 4
+  device: null        # null = autodetección (GPU si existe)
+  cache: false
+  # En GPU, Ultralytics comprueba AMP descargando un modelo pequeño; se desactiva para no descargar nada.
+  amp: false
+  # Los gráficos pueden requerir descargar una fuente; se desactivan por la misma razón.
+  plots: false
+  # El ZIP ya trae volteos, giros de 90°, rotación ±13° y desenfoque horneados en train;
+  # se mantienen los aumentos por defecto de Ultralytics salvo el volteo vertical.
+  flipud: 0.0
+  fliplr: 0.5
+  single_cls: true

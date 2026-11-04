@@ -1,0 +1,32 @@
+{
+  "file": "best.pt",
+  "sha256": "892cc29f53e94ecea6bd98573ca1ea129630fbdede809d53de3c53e92aba0b06",
+  "size_bytes": 6480234,
+  "task": "detect",
+  "architecture": "YOLOv8n (Ultralytics 8.4.201)",
+  "classes": {"0": "camaron"},
+  "class_note": "Entrenado con single_cls: el archivo guarda el nombre 'item'; vision_service lo traduce a 'camaron'.",
+  "source": {
+    "copied_from": "training/runs/detector/shrimp_reviewed_pilot_gpu/weights/best.pt",
+    "run": "shrimp_reviewed_pilot_gpu",
+    "trained_at": "2026-11-03T13:22:10-05:00",
+    "initial_weights": "training/weights/yolov8n.pt",
+    "dataset": "shrimp_roboflow_v4/detect_grouped_reviewed_v1 (partición agrupada por sesión, etiquetas revisadas)",
+    "dataset_license": "MIT, shrimp-object-tracking-and-counting v4, espol-magof (Roboflow Universe)",
+    "train_args": {"epochs": 20, "imgsz": 640, "batch": 4, "single_cls": true, "seed": 0, "device": "0"}
+  },
+  "known_metrics": {
+    "split": "val (501 imágenes, 614 objetos), época 20",
+    "precision": 0.99954,
+    "recall": 0.98046,
+    "mAP50": 0.99421,
+    "mAP50_95": 0.94238,
+    "test_evaluated": false
+  },
+  "limitations": [
+    "Métricas de validación en la misma escena de captura (plataforma oscura con rieles, una cámara); no garantizan el rendimiento en otras superficies, iluminaciones o cámaras.",
+    "El split de test no se ha evaluado.",
+    "Sin imágenes vacías en el entrenamiento: puede marcar manos, personas u objetos como camarón.",
+    "Las anotaciones originales omiten camarones visibles; solo una parte se corrigió en la revisión."
+  ]
+}

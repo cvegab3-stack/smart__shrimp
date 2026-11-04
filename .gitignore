@@ -6,3 +6,16 @@ training/data/
 *.pt
 *.onnx
 .venv/
+.venv312/
+.venv*/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+backend/local.sqlite3
+# Datos y modelos generados por training/ (no versionar imágenes ni pesos)
+datasets/
+training/runs/
+runs/
+*.cache
+# Excepción: el modelo que usa la aplicación viaja con el código
+!models/detector/best.pt
