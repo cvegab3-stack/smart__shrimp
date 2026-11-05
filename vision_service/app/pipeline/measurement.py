@@ -35,7 +35,11 @@ def measure_detection(detection: dict, session) -> dict:
     length_px = max(abs(x2 - x1), abs(y2 - y1))
     length_cm = pixels_to_cm(length_px, session.reference_length_cm, session.reference_pixels)
     category = None
-    for label, bounds in session.size_ranges.items():
+    # De menor a mayor: si dos rangos comparten el límite (pequeño hasta 8, mediano desde 8), esa medida cuenta en
+    # la categoría menor, sin depender del orden en que se guardaron las claves.
+    ordered = sorted(session.size_ranges.items(),
+                     key=lambda item: float("-inf") if item[1].get("min_cm") is None else item[1]["min_cm"])
+    for label, bounds in ordered:
         lower = bounds.get("min_cm")
         upper = bounds.get("max_cm")
         if (lower is None or length_cm >= lower) and (upper is None or length_cm <= upper):

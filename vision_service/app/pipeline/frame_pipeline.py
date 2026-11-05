@@ -52,7 +52,10 @@ class FramePipeline:
         catalog_classes = set(classes_for("deteccion"))
         max_area = MAX_BOX_AREA_RATIO * width * height
         shrimp = [item for item in raw_detections if item["class_name"] == "camaron"]
-        accepted = [item for item in shrimp if _box_area(item["bbox"]) <= max_area]
+        if session.discard_oversized:  # video
+            accepted = [item for item in shrimp if _box_area(item["bbox"]) <= max_area]
+        else:  # imagen: se cuentan todos; los de primer plano llevan close_up=True para avisar
+            accepted = shrimp
         oversized = len(shrimp) - len(accepted)
         rejected = [item for item in raw_detections if item["class_name"] == "no_camaron"]
         unknown = [item for item in raw_detections if item["class_name"] not in catalog_classes]
@@ -87,6 +90,8 @@ class FramePipeline:
                 "integrity": integrity, "presentation": presentation,
                 "visual_condition": condition, "visual_condition_confidence": condition_confidence,
                 **length_data, "estimated_weight_g": weight_g,
+                # Ocupa más que MAX_BOX_AREA_RATIO de la imagen: foto demasiado cercana, medida poco fiable.
+                "close_up": _box_area(item["bbox"]) > max_area,
             }
             session.detections[track_id] = record
             output.append(record)

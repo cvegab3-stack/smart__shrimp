@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="SMART SHRIMP: análisis visual de camarones.">
   <title>{% block title %}SMART SHRIMP{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {# ?v=: cambiar al modificar main.css para que el navegador no use una copia antigua guardada. #}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261104n">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -40,6 +41,8 @@
 {% else %}
 </div>
 {% endif %}
+{# Ojo para mostrar/ocultar en todos los campos de contraseña. ?v=: cambiar al modificar el archivo. #}
+<script src="{% static 'js/password_toggle.js' %}?v=20261104n" defer></script>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>

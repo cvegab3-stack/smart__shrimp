@@ -51,11 +51,55 @@ Las imágenes de `detect/`, `segment/` y `detect_grouped_reviewed_v1/` son enlac
 
    Para **continuar desde el modelo actual** con fotos nuevas, use `--model models\detector\best.pt`.
 
-4. **Publicar el modelo en la aplicación.** El resultado queda en `training/runs/detector/<name>/weights/best.pt`. Si sus métricas son mejores, guarde una copia del modelo anterior, copie el nuevo a `models/detector/best.pt` y actualice `models/detector/model_info.json` (SHA-256 con `Get-FileHash`, ejecución de origen y métricas).
+4. **Evaluar en test** (ver la sección [Evaluar el detector en test](#evaluar-el-detector-en-test)).
+
+5. **Publicar el modelo en la aplicación.** El resultado queda en `training/runs/detector/<name>/weights/best.pt`. Si sus métricas son mejores, guarde una copia del modelo anterior, copie el nuevo a `models/detector/best.pt` y actualice `models/detector/model_info.json` (SHA-256 con `Get-FileHash`, ejecución de origen y métricas).
+
+## Evaluar el detector en test
+
+`scripts/evaluate_test_split.py` evalúa un modelo **solo** en la partición de prueba de un `data.yaml` con `train`, `val` y `test`. Por defecto usa `shrimp_roboflow_v4/detect_grouped_reviewed_v1/data.yaml` y `models/detector/best.pt`. No entrena ni modifica el modelo, y no permite elegir otra partición: validación no se usa como test.
+
+Antes de medir comprueba que ninguna imagen de test comparta con train o val su nombre, su foto fuente, su contenido (SHA-256), su sesión de captura o su vídeo. La sesión y el vídeo salen de `shrimp_roboflow_v4/audit/images.csv`. Si encuentra algo compartido o no puede comprobarlo, se detiene sin evaluar.
+
+Mide lo mismo que `evaluate_detector.py`:
+
+- las métricas de Ultralytics (conf 0.001, iou 0.7, imgsz 640);
+- el punto de operación de la aplicación (`--conf`, 0.5 por defecto): TP/FP/FN con IoU ≥ 0.5 y error de conteo.
+
+Guarda `docs/evidence/detector_test/report.json` con las métricas, el SHA-256 del modelo, la huella del conjunto de test y el resultado de la comprobación.
+
+PowerShell, desde la raíz del proyecto (cambie `--data-dir` por la carpeta que contiene `shrimp_roboflow_v4`):
+
+```powershell
+# 1. Solo comprobar la separación de test (no carga el modelo; ~1 min)
+& .\.venv312\Scripts\python.exe training\scripts\evaluate_test_split.py `
+    --data-dir "C:\ruta\a\dataset" --check-only
+
+# 2. Evaluar el modelo actual en test (GPU; use --device cpu si no hay)
+& .\.venv312\Scripts\python.exe training\scripts\evaluate_test_split.py `
+    --data-dir "C:\ruta\a\dataset"
+```
+
+Resultado del modelo actual (`best.pt`, SHA-256 `98112a05…`) obtenido el 04-11-2026 con 347 imágenes y 697 objetos:
+
+| Métrica | Valor |
+|---|---|
+| mAP50 | 0,894 |
+| mAP50-95 | 0,785 |
+| Precision / recall (Ultralytics) | 0,937 / 0,791 |
+| Conf 0,5: precision / recall | 0,978 / 0,704 (TP 491, FP 11, FN 206) |
+| Conf 0,5: conteo exacto / error medio de conteo | 55,6 % de imágenes / 0,57 camarones por imagen |
+
+Coinciden con las cifras `test_old` de `models/detector/model_info.json`.
+
+Límites:
+
+- Este test solo cubre la plataforma original (2 sesiones). El `test_new` de `shrimp_combined_v2` (40 imágenes de superficies secas) no se ha reproducido aquí, porque ese dataset no está en este equipo.
+- Ultralytics reescribe `labels.cache` en la carpeta del dataset y, la primera vez, descarga la fuente `Arial.ttf` a `%APPDATA%\Ultralytics`.
 
 Hallazgos, limitaciones y atributos aprovechables: [docs/dataset_shrimp_roboflow_v4.md](../docs/dataset_shrimp_roboflow_v4.md).
 Origen y licencia de cada fuente: `registry/sources.yaml`.
 
 Este dataset **no** aporta longitud en cm, peso, frescura ni presentación. Además, solo muestra una plataforma oscura y seca, por lo que no hay evidencia de funcionamiento sobre otras superficies.
 
-Los scripts `build_dataset.py`, `split_dataset.py`, `export_model.py`, `s3_sync.py` y `train_color_classifier.py` siguen siendo plantillas (solo un comentario). `evaluate_detector.py` y `build_combined_dataset.py` sí están implementados.
+Los scripts `build_dataset.py`, `split_dataset.py`, `export_model.py`, `s3_sync.py` y `train_color_classifier.py` siguen siendo plantillas (solo un comentario). `evaluate_detector.py`, `evaluate_test_split.py` y `build_combined_dataset.py` sí están implementados.

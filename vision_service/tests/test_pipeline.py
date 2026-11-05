@@ -155,3 +155,44 @@ def test_auth_dependency_accepts_django_token_and_summary_is_empty(monkeypatch):
     assert started["status"] == "en_curso"
     assert summary["shrimp_count"] == 0
     assert summary["model_mode"] == "inference"
+
+
+def test_shared_size_limit_counts_in_the_smaller_category_regardless_of_key_order():
+    from types import SimpleNamespace
+
+    from app.pipeline.measurement import measure_detection
+
+    # Claves guardadas en desorden a propósito: el resultado no debe depender de ese orden.
+    ranges = {"grande": {"min_cm": 13, "max_cm": None}, "pequeno": {"min_cm": 0, "max_cm": 8},
+              "mediano": {"min_cm": 8, "max_cm": 13}}
+    session = SimpleNamespace(reference_length_cm=10, reference_pixels=100, size_ranges=ranges)  # 10 px = 1 cm
+
+    def category(length_px):
+        return measure_detection({"bbox": [0, 0, length_px, 10]}, session)["size_category"]
+
+    assert category(80) == "pequeno"    # 8 cm: límite compartido → categoría menor
+    assert category(81) == "mediano"    # 8,1 cm
+    assert category(130) == "mediano"   # 13 cm
+    assert category(131) == "grande"
+
+
+def test_close_up_shrimp_is_counted_in_image_mode_but_discarded_in_video():
+    # Caja de 90×90 en una imagen de 100×100: 81 % del área, por encima de MAX_BOX_AREA_RATIO (45 %).
+    pipeline = _pipeline_returning((5.0, 5.0, 95.0, 95.0))
+    image_session = SessionRegistry().start({"analysis_id": "img", "attempt": 1, "calibration_version": 1, "source": "imagen"})
+    result = pipeline.process(image_session, "f1", _blank_frame())
+    assert len(result["detections"]) == 1
+    assert result["detections"][0]["close_up"] is True
+    assert image_session.rejected_count == 0
+
+    video_session = SessionRegistry().start({"analysis_id": "vid", "attempt": 1, "calibration_version": 1, "source": "video"})
+    for index in range(video_session.min_track_hits):
+        result = pipeline.process(video_session, f"f{index}", _blank_frame())
+    assert result["detections"] == []  # en video puede ser una mano: se descarta
+    assert video_session.rejected_count == video_session.min_track_hits
+
+
+def test_normal_size_shrimp_is_not_marked_close_up():
+    pipeline = _pipeline_returning((10.0, 10.0, 40.0, 30.0))
+    session = SessionRegistry().start({"analysis_id": "img2", "attempt": 1, "calibration_version": 1, "source": "imagen"})
+    assert pipeline.process(session, "f1", _blank_frame())["detections"][0]["close_up"] is False

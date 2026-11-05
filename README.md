@@ -52,7 +52,7 @@ Espera a ver `Application startup complete.` y `Uvicorn running on http://127.0.
 
 Aplica las migraciones y abre la aplicación en [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-Deja ambas ventanas abiertas mientras uses la aplicación. Para detener un servicio, pulsa `Ctrl+C` en su ventana. Si cambias código del servicio de visión, reinícialo (Django se recarga solo).
+Deja ambas ventanas abiertas mientras uses la aplicación. Para detener un servicio, pulsa `Ctrl+C` en su ventana. Los dos se recargan solos al cambiar su código (el de visión vuelve a cargar el modelo, unos segundos). Para arrancar el de visión sin recarga automática, por ejemplo en una demostración: `.\scripts\run_vision_windows.ps1 -NoReload`.
 
 ## 3. Configurar (una vez, como administrador)
 
@@ -86,7 +86,7 @@ Qué esperar del modelo actual (piloto):
 - La condición visual sale como `no_concluyente` y el peso como no disponible: aún no hay clasificador de color ni regresor de peso.
 - Las longitudes en cm solo son reales si la calibración se hizo con una referencia medida en la misma cámara.
 - **Falsos positivos fuera del montaje de captura**: el modelo se entrenó solo con imágenes que tenían camarones (ninguna escena vacía), así que puede marcar personas, manos u objetos como camarón. Apunta la cámara solo a la zona de camarones. En vídeo, un objeto debe mantenerse 3 fotogramas para contarse (`VIDEO_MIN_TRACK_HITS`) y se descartan cajas mayores al 45 % de la imagen (`MAX_BOX_AREA_RATIO`). La solución definitiva es reentrenar añadiendo fotos de la cámara real sin camarones.
-- Es un piloto: validación mAP50-95 ≈ 0,94, sin evaluar test y con casos de etiquetas pendientes. No tomes sus cifras como definitivas.
+- Es un piloto: validación mAP50-95 ≈ 0,94. En test de la plataforma original (347 imágenes, separadas de train y val por sesión) obtiene mAP50 0,894 y mAP50-95 0,785; con confianza 0,5, recall 0,70 y conteo exacto en el 56 % de las imágenes (informe reproducible en `docs/evidence/detector_test/report.json`, ver [training/README.md](training/README.md#evaluar-el-detector-en-test)). Hay casos de etiquetas pendientes. No tomes sus cifras como definitivas.
 
 ## Problemas frecuentes
 

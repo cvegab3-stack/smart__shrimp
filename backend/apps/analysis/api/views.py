@@ -12,8 +12,9 @@ from apps.analysis.api.serializers import (
     FrameInputSerializer, ThresholdCreateSerializer, ThresholdSerializer,
 )
 from apps.analysis.models import AnalysisSession, Calibration, ThresholdProfile
-from apps.analysis.services.calibration_service import create_calibration
+from apps.analysis.services.calibration_service import activate_calibration, create_calibration
 from apps.analysis.services.frame_relay_service import relay_frame
+from apps.analysis.services.snapshot_service import save_snapshot
 from apps.analysis.services.session_service import retry_analysis, start_analysis
 from apps.analysis.services.threshold_service import create_threshold_profile
 from apps.results.services.report_service import complete_analysis
@@ -119,6 +120,8 @@ class FrameRelayView(APIView):
             raise ValidationError(str(exc)) from exc
         except VisionServiceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        analysis = AnalysisSession.objects.get(pk=pk)
+        save_snapshot(analysis, data["attempt"], data["image_base64"], result.get("detections") or [])
         return Response(result)
 
 
@@ -143,6 +146,21 @@ class CalibrationView(APIView):
         except DjangoValidationError as exc:
             raise ValidationError(getattr(exc, "message_dict", exc.messages)) from exc
         return Response(CalibrationSerializer(calibration).data, status=status.HTTP_201_CREATED)
+
+
+class CalibrationActivateView(APIView):
+    """Pone en uso una versión anterior del historial, sin copiarla (solo administrador)."""
+
+    permission_classes = (AdministratorOnly,)
+
+    def post(self, request, version):
+        try:
+            calibration = activate_calibration(version, actor=request.user, ip_address=request.META.get("REMOTE_ADDR"))
+        except DjangoValidationError as exc:
+            raise ValidationError(getattr(exc, "message_dict", exc.messages)) from exc
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response(CalibrationSerializer(calibration).data)
 
 
 class ThresholdView(APIView):

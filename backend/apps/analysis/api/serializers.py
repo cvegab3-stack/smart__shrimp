@@ -26,7 +26,8 @@ class CalibrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Calibration
-        fields = ("version", "reference_length_cm", "reference_pixels", "size_ranges", "created_at")
+        fields = ("version", "reference_length_cm", "reference_pixels", "size_ranges", "created_at", "based_on_version",
+                  "image_width", "image_height")
         read_only_fields = fields
 
 
@@ -36,6 +37,14 @@ class CalibrationCreateSerializer(serializers.Serializer):
     reference_length_cm = serializers.FloatField(min_value=0.000001)
     reference_pixels = serializers.IntegerField(min_value=1)
     size_ranges = serializers.DictField(child=serializers.DictField())
+    # Resolución de la imagen donde se midió (la rellena la herramienta 📏). Opcional, pero ambos o ninguno.
+    image_width = serializers.IntegerField(min_value=1, max_value=20000, required=False, allow_null=True)
+    image_height = serializers.IntegerField(min_value=1, max_value=20000, required=False, allow_null=True)
+
+    def validate(self, attrs):
+        if (attrs.get("image_width") is None) != (attrs.get("image_height") is None):
+            raise serializers.ValidationError("Indique el ancho y el alto de la imagen, o ninguno.")
+        return attrs
 
 
 class ThresholdSerializer(serializers.ModelSerializer):
