@@ -120,16 +120,39 @@
     warning.textContent = `Esta ${container === videoControls ? "cámara entrega" : "imagen mide"} ${width} × ${height} px, pero la calibración se midió en ${calibrationSize[0]} × ${calibrationSize[1]} px: las longitudes y los tamaños no serán fiables. Usa la misma cámara y resolución que en la calibración.`;
     container.prepend(warning); }
 
+  const dropzone = $("#image-dropzone"); const dropzoneFile = $("#dropzone-file"); let dropNote = "";
+  const showChosen = (name) => { dropzoneFile.textContent = name ? `Imagen elegida: ${name}` : ""; dropzoneFile.hidden = !name; dropzone.classList.toggle("has-file", Boolean(name)); };
   imageInput.addEventListener("change", async () => {
-    const file = imageInput.files?.[0]; selectedFile = null; processImageButton.disabled = true; preview.hidden = true; showImageProblem(""); warnResolution(0, 0, imageControls);
+    const file = imageInput.files?.[0]; selectedFile = null; processImageButton.disabled = true; preview.hidden = true; showImageProblem(""); warnResolution(0, 0, imageControls); showChosen("");
     if (!file) return;
     const check = await window.SmartShrimp.validateImageFile(file, { minSide: MIN_IMAGE_SIDE });
-    if (!check.ok) { showImageProblem(check.message); imageInput.value = ""; return; }
+    if (!check.ok) { showImageProblem(check.message); imageInput.value = ""; dropNote = ""; return; }
+    showChosen(file.name);
     warnResolution(check.bitmap.width, check.bitmap.height, imageControls); check.bitmap.close?.();
     if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
     selectedFile = file; preview.src = URL.createObjectURL(file); preview.hidden = false; processImageButton.disabled = false;
-    captureStatus.textContent = "Imagen lista. Pulsa «Analizar imagen».";
+    captureStatus.textContent = `Imagen lista. Pulsa «Analizar imagen».${dropNote ? ` ${dropNote}` : ""}`; dropNote = "";
   });
+
+  // Arrastrar y soltar: la foto soltada se entrega al mismo <input type="file">, así pasa por la misma validación
+  // que al elegirla con clic. Mientras se analiza (campo deshabilitado) no se aceptan fotos.
+  const draggingFiles = (event) => [...(event.dataTransfer?.types || [])].includes("Files");
+  let dragDepth = 0;
+  dropzone.addEventListener("dragenter", (event) => { if (!draggingFiles(event)) return; event.preventDefault(); dragDepth += 1; dropzone.classList.toggle("is-dragover", !imageInput.disabled); });
+  dropzone.addEventListener("dragover", (event) => { if (!draggingFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = imageInput.disabled ? "none" : "copy"; });
+  dropzone.addEventListener("dragleave", () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropzone.classList.remove("is-dragover"); });
+  dropzone.addEventListener("drop", (event) => {
+    if (!draggingFiles(event)) return; event.preventDefault(); dragDepth = 0; dropzone.classList.remove("is-dragover");
+    if (imageInput.disabled) return;
+    const files = [...event.dataTransfer.files];
+    if (!files.length) return;
+    // El aviso se muestra junto con «Imagen lista» cuando termina la validación (que es asíncrona).
+    dropNote = files.length > 1 ? `Soltaste ${files.length} fotos: se usa solo la primera (un análisis por imagen).` : "";
+    const transfer = new DataTransfer(); transfer.items.add(files[0]); imageInput.files = transfer.files;
+    imageInput.dispatchEvent(new Event("change"));
+  });
+  // Una foto soltada fuera del recuadro no debe abrirse en el navegador (se perdería la página del análisis).
+  ["dragover", "drop"].forEach((type) => window.addEventListener(type, (event) => { if (draggingFiles(event) && !dropzone.contains(event.target)) event.preventDefault(); }));
 
   let analyzing = false;
   async function analyzeImage() {
@@ -221,7 +244,7 @@
   }
   function resetToIdentify() {
     stopCamera(); analysis = null; selectedFile = null; framesOk = 0; imageInput.value = ""; preview.hidden = true; preview.removeAttribute("src");
-    showImageProblem(""); warnResolution(0, 0, imageControls); warnResolution(0, 0, videoControls); batchInput.value = "";
+    showImageProblem(""); showChosen(""); warnResolution(0, 0, imageControls); warnResolution(0, 0, videoControls); batchInput.value = "";
     setMode("identify"); batchInput.focus();
   }
   newAnalysisButton.addEventListener("click", resetToIdentify);

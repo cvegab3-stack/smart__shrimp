@@ -218,3 +218,19 @@ button,input,select,textarea{font:inherit} button,a{touch-action:manipulation} b
 /* La tabla de cuentas se desplaza dentro de su tarjeta (sin ensanchar la página) y los nombres no se parten letra a letra. */
 .users-page .admin-layout{grid-template-columns:minmax(0,1fr)}.users-page .admin-layout>.card{min-width:0}
 .accounts-table td:first-child{min-width:190px}.account-name{word-break:normal;overflow-wrap:anywhere}
+/* Captura de imagen: recuadro para arrastrar y soltar la foto (o hacer clic para elegirla). */
+.field-label{font-weight:700;font-size:14px}
+.dropzone{position:relative;display:grid;justify-items:center;gap:8px;padding:26px 18px;border:2px dashed #9fc6d1;border-radius:16px;background:#f5fbfc;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.dropzone:hover{border-color:var(--teal);background:#eef8fa}
+.dropzone:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px rgba(11,127,140,.18)}
+.dropzone.is-dragover{border-color:var(--teal);border-style:solid;background:#e3f4f6}
+.dropzone.has-file{border-style:solid;border-color:#7cc7a0;background:#f1faf4}
+.dropzone:has(.dropzone-input:disabled){cursor:progress;opacity:.7}
+.dropzone-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.dropzone-icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#e3f3f6;color:var(--teal)}
+.dropzone-icon svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dropzone-text strong{color:var(--ink)}.dropzone-link{color:var(--teal);font-weight:800;text-decoration:underline}
+.dropzone-file{font-size:14px;font-weight:700;color:#0a6532;word-break:break-all}
+/* Captura de imagen en una columna: recuadro, vista previa y botón (antes el botón se estiraba en la 2.ª columna). */
+.flow-card #image-controls{grid-template-columns:minmax(0,1fr)}
+#image-controls .capture-preview{max-height:320px;width:100%;object-fit:contain;border-radius:14px;background:#f5fbfc}
