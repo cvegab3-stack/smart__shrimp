@@ -19,7 +19,11 @@
       if (!rule.test) item.classList.add("is-info"); list.append(item); return item; });
     const render = () => rules.forEach((rule, index) => { if (!rule.test) return; const ok = rule.test(input.value);
       items[index].classList.toggle("is-ok", ok); items[index].setAttribute("aria-label", `${rule.text}: ${ok ? "cumple" : "pendiente"}`); });
-    (input.closest(".field") || input.parentElement).append(list);
+    // Con data-password-rules-target="#id" la lista va en ese contenedor (p. ej. el recuadro de requisitos de
+    // «Crear usuario», en una sola línea); si no, bajo el propio campo.
+    const target = input.dataset.passwordRulesTarget ? document.querySelector(input.dataset.passwordRulesTarget) : null;
+    if (target) { list.classList.add("password-rules-inline"); target.append(list); }
+    else (input.closest(".field") || input.parentElement).append(list);
     input.addEventListener("input", render); confirm?.addEventListener("input", render);
     input.form?.addEventListener("reset", () => setTimeout(render)); render();
   }

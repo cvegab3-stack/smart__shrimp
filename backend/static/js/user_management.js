@@ -13,6 +13,8 @@
     lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
   };
   const { el } = window.SmartShrimp;  // common.js: el texto va por textContent, nunca como HTML
+  // Aviso bajo «Crear usuario»: verde si salió bien, rojo si no.
+  function say(text, ok = true) { message.textContent = text; message.className = `field-wide alert ${ok ? "alert-success" : "alert-error"}`; message.hidden = !text; }
   function button(text, onClick, { className = "btn btn-secondary", icon } = {}) { const node = el("button", className); node.type = "button";
     if (icon) node.insertAdjacentHTML("beforeend", ICONS[icon]); node.append(el("span", "", text)); node.addEventListener("click", onClick); return node; }
   // Columna "Contraseña": quién y cuándo la cambió por última vez. Nunca se muestra la contraseña (solo existe su hash).
@@ -49,7 +51,7 @@
       if (!first.input.value) { status.textContent = "Escribe la nueva contraseña."; first.input.focus(); return; }
       if (first.input.value !== second.input.value) { status.textContent = "Las contraseñas no coinciden."; second.input.focus(); return; }
       save.disabled = true;
-      try { await api(`/api/accounts/users/${user.id}/password/`, "POST", { password: first.input.value }); await loadUsers(); message.textContent = `Contraseña de ${user.username} actualizada.`; }
+      try { await api(`/api/accounts/users/${user.id}/password/`, "POST", { password: first.input.value }); await loadUsers(); say(`Contraseña de ${user.username} actualizada.`); }
       catch (error) { status.textContent = error.message; save.disabled = false; } });
     panel.append(head, fields, hint, status, actions); return panel; }; }
   // Panel "Editar": usuario, nombre, apellido, correo y rol. Solo se envían los campos que cambian.
@@ -72,7 +74,7 @@
       if ("username" in changes && !changes.username) { status.textContent = "El usuario no puede quedar vacío."; inputs.username.input.focus(); return; }
       if (!Object.keys(changes).length) { row.remove(); return; }
       save.disabled = true;
-      try { await api(`/api/accounts/users/${user.id}/`, "PATCH", changes); await loadUsers(); message.textContent = `Cuenta ${changes.username || user.username} actualizada.`; }
+      try { await api(`/api/accounts/users/${user.id}/`, "PATCH", changes); await loadUsers(); say(`Cuenta ${changes.username || user.username} actualizada.`); }
       catch (error) { status.textContent = error.message; save.disabled = false; } });
     panel.append(head, fields, status, actions); return panel; }; }
   function userCell(user, isSelf) { const cell = el("td"); const box = el("div", "account-user"); const names = el("div", "account-names");
@@ -96,7 +98,7 @@
       buttons.append(button("Editar", () => togglePanel(row, "edit", editPanel(user, isSelf), headings.length), { icon: "edit" }));
       const toggle = button(user.is_active ? "Desactivar" : "Activar", async () => {
         if (user.is_active && !window.confirm(`¿Desactivar la cuenta ${user.username}? No podrá iniciar sesión hasta que la actives de nuevo.`)) return;
-        try { await api(`/api/accounts/users/${user.id}/`, "PATCH", { is_active: !user.is_active }); await loadUsers(); message.textContent = `Cuenta ${user.username} ${user.is_active ? "desactivada" : "activada"}.`; } catch (error) { message.textContent = error.message; } });
+        try { await api(`/api/accounts/users/${user.id}/`, "PATCH", { is_active: !user.is_active }); await loadUsers(); say(`Cuenta ${user.username} ${user.is_active ? "desactivada" : "activada"}.`); } catch (error) { say(error.message, false); } });
       if (user.is_active && (isSelf || lastAdmin)) { toggle.disabled = true; toggle.title = isSelf ? "No puedes desactivar tu propia cuenta." : "Es el único administrador activo: crea o activa otro antes de desactivarlo."; }
       buttons.append(toggle);
       buttons.append(button("Cambiar contraseña", () => togglePanel(row, "password", passwordPanel(user), headings.length), { icon: "key" }));
@@ -104,10 +106,13 @@
     });
     const thead = el("thead"); const heading = el("tr"); headings.forEach((value) => heading.append(el("th", "", value))); thead.append(heading); table.append(thead, tbody); list.replaceChildren(table);
   } catch (error) { list.textContent = error.message; } }
-  form.addEventListener("submit", async (event) => { event.preventDefault();
+  const createButton = document.querySelector("#create-user-button");
+  form.addEventListener("submit", async (event) => { event.preventDefault(); if (createButton.disabled) return;
     const confirmInput = document.querySelector("#new-password-confirm");
-    if (document.querySelector("#new-password").value !== confirmInput.value) { message.textContent = "Las contraseñas no coinciden."; confirmInput.focus(); return; }
+    if (document.querySelector("#new-password").value !== confirmInput.value) { say("Las contraseñas no coinciden.", false); confirmInput.focus(); return; }
     const payload = { username: document.querySelector("#new-username").value, password: document.querySelector("#new-password").value, role: document.querySelector("#new-role").value, first_name: document.querySelector("#new-first-name").value, last_name: document.querySelector("#new-last-name").value, email: document.querySelector("#new-email").value };
-    try { await api("/api/accounts/users/", "POST", payload); form.reset(); message.textContent = "Usuario creado."; await loadUsers(); } catch (error) { message.textContent = error.message; }
+    createButton.disabled = true; createButton.textContent = "Creando…";
+    try { await api("/api/accounts/users/", "POST", payload); form.reset(); say(`Usuario ${payload.username} creado.`); await loadUsers(); } catch (error) { say(error.message, false); }
+    finally { createButton.disabled = false; createButton.textContent = "Crear usuario"; }
   }); loadUsers();
 })();
