@@ -28,7 +28,13 @@
     "val_combined": {"images": 527, "objects": 644, "precision": 0.992, "recall": 0.969, "mAP50": 0.984, "mAP50_95": 0.940},
     "test_old": {"images": 347, "objects": 697, "mAP50": 0.894, "mAP50_95": 0.785, "at_conf_0.5": {"precision": 0.978, "recall": 0.704, "count_exact": 0.556}},
     "test_new": {"images": 40, "objects": 88, "mAP50": 0.973, "mAP50_95": 0.787, "at_conf_0.5": {"precision": 1.0, "recall": 0.886, "count_exact": 0.80}},
-    "test_evaluated": true
+    "test_evaluated": true,
+    "test_old_reproduced": {
+      "report": "docs/evidence/detector_test/report.json",
+      "script": "training/scripts/evaluate_test_split.py",
+      "date": "2026-11-04",
+      "note": "Reproduce test_old (mismas 347 imágenes y 697 objetos) con separación de train/val comprobada. test_new no reproducido: falta shrimp_combined_v2 en este equipo."
+    }
   },
   "limitations": [
     "Test de imágenes nuevas pequeño (40 imágenes, 88 camarones): las métricas de superficie seca tienen bastante incertidumbre.",

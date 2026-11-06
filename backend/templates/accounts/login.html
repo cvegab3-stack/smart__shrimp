@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Iniciar sesión · SMART SHRIMP{% endblock %}
 {% block content %}
 {% if request.GET.role == 'operador' or request.GET.role == 'control_calidad' or request.GET.role == 'supervisor' or request.GET.role == 'administrador' %}
@@ -19,8 +20,7 @@
     </form><p class="notice" style="margin-top:20px">La cuenta se bloquea durante 15 minutos después de tres intentos fallidos.</p>
     <a class="login-back" href="{% url 'login' %}">← Volver a seleccionar perfil</a>
   </div></section>
-</main>
-{% else %}
+</main>{% else %}
 <main class="profiles-page">
   <div class="profiles-scene" aria-hidden="true"><div class="profiles-scene-brand"><div class="brand-mark">◖</div><div><strong>SMART <span>SHRIMP</span></strong><small>Detección inteligente de camarones</small></div></div><div class="profiles-scene-copy"><span>CONTROL DE CALIDAD ASISTIDO</span><h1>Visión precisa para decisiones confiables.</h1><p>Analiza, monitorea y gestiona cada lote desde un solo lugar.</p></div><div class="water-orb water-orb-one"></div><div class="water-orb water-orb-two"></div></div>
   <div class="profiles-overlay"><section class="profiles-modal" aria-labelledby="profiles-title">

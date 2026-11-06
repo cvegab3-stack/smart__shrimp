@@ -6,11 +6,11 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 
 | ID | Requisito | Implementación | Evidencia / estado |
 |---|---|---|---|
-| RF-01 | Autenticación de operadores | `backend/apps/accounts` login Django, hash del framework y sesiones | `backend/apps/accounts/tests`; implementado |
-| RF-02 | Usuarios y roles | Usuario propio con roles operador, calidad, supervisor y administrador | `backend/apps/accounts/tests`; implementado |
-| RF-03 | Permisos por rol | permisos DRF y vistas HTML restringidas; denegaciones auditadas | `backend/apps/accounts/tests`; implementado |
+| RF-01 | Autenticación de operadores | `backend/apps/accounts` login Django, hash del framework y sesiones; usuario sin distinguir mayúsculas; aviso de cuenta inactiva solo con contraseña correcta | `backend/apps/accounts/tests` (`InactiveAccountLoginTests`, `UsernameCaseTests`); implementado |
+| RF-02 | Usuarios y roles | Usuario propio con roles operador, calidad, supervisor y administrador; cambio de la propia contraseña en Mi perfil y asignación por el administrador, registrados en bitácora (nunca se muestra ni guarda en claro); errores de validación legibles | `backend/apps/accounts/tests` (`PasswordChangeTests`, `UserCreationValidationTests`); implementado |
+| RF-03 | Permisos por rol | permisos DRF y vistas HTML restringidas; denegaciones auditadas; el login exige el perfil del rol de la cuenta (`login.role_mismatch`) | `backend/apps/accounts/tests` (`LoginProfileTests`); implementado |
 | RF-04 | Registrar análisis | Sesiones UUID, operador, lote, calibración/umbrales congelados y estados | `backend/apps/analysis/tests`; implementado |
-| RF-05 | Detectar en imagen/video | M3 recibe fotogramas; detector configurable, navegador usa cámara | `vision_service/tests`; flujo simulado disponible. Validación con modelo pendiente |
+| RF-05 | Detectar en imagen/video | M3 recibe fotogramas; detector configurable, navegador usa cámara; recuadros en vivo con el tamaño; la imagen analizada se guarda y se muestra con recuadros en el detalle; primer plano contado con aviso en modo imagen | `vision_service/tests`, `backend/apps/results/tests` (`AnalysisSnapshotAndSummaryTests`); exactitud en test: ver RNF-03 |
 | RF-06 | Conteo con seguimiento | Tracker IoU y línea de conteo M3 | `vision_service/tests`; exactitud de conteo con dataset pendiente |
 | RF-07 | Medir longitud | Calibración píxel/cm y medición por detección | `vision_service/tests`; precisión de aceptación pendiente |
 | RF-08 | Categoría de tamaño | Bandas versionadas sin solapamiento, aplicación por longitud | `backend/apps/analysis/tests`, `vision_service/tests`; implementado |
@@ -20,7 +20,7 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 | RF-12 | Consultar historial | filtros de lote, fechas, estado/condición, detalle y aislamiento del operador | `backend/apps/results/tests`; implementado |
 | RF-13 | Reporte de producción | agregados persistidos por rango de fecha con conteos, tamaños, peso estimado y condición | `backend/apps/results/tests`; implementado |
 | RF-14 | Exportar CSV/PDF | exportaciones de informe y detalle, acceso solo supervisor y evento de auditoría | `backend/apps/results/tests`; implementado |
-| RF-15 | Configurar calibración | versiones inmutables, referencias históricas y validación de rangos | `backend/apps/analysis/tests`; implementado |
+| RF-15 | Configurar calibración | versiones inmutables, referencias históricas y validación de rangos (sin negativos, orden pequeño < mediano < grande, límites compartidos, referencia ≥ 20 px, aviso de escala poco realista); medición de píxeles con dos clics (📏) que registra la resolución; historial con activación de versiones anteriores sin duplicados | `backend/apps/analysis/tests` (`CalibrationRangeValidationTests`, `CalibrationScaleLogicTests`, `CalibrationHistoryTests`, `CalibrationResolutionTests`); implementado |
 | RF-16 | Manejar error de análisis | estado/error visible, reintento con nuevo intento y protección contra resultados parciales | `backend/apps/analysis/tests`, `backend/apps/results/tests`; implementado |
 
 ## Requisitos no funcionales
@@ -29,7 +29,7 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 |---|---|---|---|
 | RNF-01 | 1920×1080, p95 ≤2 s en 100 análisis | resolución/fotogramas aceptados por API | Pendiente: medición en hardware y modelo objetivo |
 | RNF-02 | vídeo promedio ≥15 FPS durante 5 min | captura del navegador limitada a 15 FPS y canal asíncrono M3 | Pendiente: prueba sostenida de extremo a extremo |
-| RNF-03 | mAP50 ≥0.92 | detector YOLO cargable mediante `DETECTOR_WEIGHTS` | Pendiente: dataset de prueba y pesos aprobados |
+| RNF-03 | mAP50 ≥0.92 | detector YOLO cargable mediante `DETECTOR_WEIGHTS`; evaluación reproducible en test con `training/scripts/evaluate_test_split.py` | **No cumple** con el modelo actual: mAP50 0,894 en test de la plataforma original (347 imágenes, separación comprobada; `docs/evidence/detector_test/report.json`). Pendiente: test de superficies nuevas (`test_new`) y pesos aprobados |
 | RNF-04 | errores longitud/peso dentro de umbral con ≥30 muestras | calibración y estimador configurables; valores ausentes no se inventan | Pendiente: muestras medidas y evaluación estadística |
 | RNF-05 | hash unidireccional con sal | autenticación y contraseña gestionadas por Django | Implementado por framework; revisar política de despliegue final |
 | RNF-06 | cierre tras 30 min inactivo | expiración de sesión y renovación por petición | Implementado; prueba de reloj/producción pendiente |
@@ -47,4 +47,5 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 - Lint: `python -m ruff check backend contracts tests_integration vision_service`.
 - Migraciones/modelos: `python manage.py makemigrations --check --dry-run` y `python manage.py check` con `config.settings.testing`.
 - `node --check` para los archivos JavaScript del frontend.
-- No se ejecutó carga, medición de exactitud, restauración de respaldo o prueba de usabilidad.
+- Exactitud del detector en test (04-11-2026): `training/scripts/evaluate_test_split.py` sobre `shrimp_roboflow_v4/detect_grouped_reviewed_v1` (ver `training/README.md`).
+- No se ejecutó carga, restauración de respaldo o prueba de usabilidad.

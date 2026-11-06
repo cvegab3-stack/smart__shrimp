@@ -18,6 +18,7 @@ from apps.results.api.serializers import (
 from apps.results.models import ProductionReport, ShrimpRecord
 from apps.results.services.csv_exporter import export_analysis_csv, export_report_csv
 from apps.results.services.history_service import get_history
+from apps.results.services.presentation_service import build_summary
 from apps.results.services.pdf_exporter import export_analysis_pdf, export_report_pdf
 from apps.results.services.report_service import create_production_report
 
@@ -62,6 +63,7 @@ class AnalysisResultsView(APIView):
         return Response({
             "analysis": AnalysisHistorySerializer(analysis).data,
             "results": ShrimpRecordSerializer(rows, many=True).data,
+            "summary": build_summary(analysis),  # resumen legible + imagen con recuadros
         })
 
 

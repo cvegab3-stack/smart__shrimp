@@ -29,6 +29,7 @@ class SessionRegistry:
                 visual_condition_confidence=float(data.get("visual_condition_confidence", 0)),
                 # Una imagen suelta es un solo fotograma: no se puede exigir persistencia.
                 min_track_hits=VIDEO_MIN_TRACK_HITS if data.get("source") == "video" else 1,
+                discard_oversized=data.get("source") == "video",
             )
             self._sessions[key] = session
             return session

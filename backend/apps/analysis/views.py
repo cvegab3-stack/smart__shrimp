@@ -37,10 +37,15 @@ def live_session_view(request):
 @login_required
 def calibration_view(request):
     """Muestra la referencia vigente; solo el administrador puede actualizarla."""
-    calibration = Calibration.objects.filter(is_active=True).first()
+    calibrations = list(Calibration.objects.annotate(analyses=Count("analysis_sessions")).order_by("-version"))
+    calibration = next((c for c in calibrations if c.is_active), None)
+    creators = dict(User.objects.filter(pk__in={c.created_by_id for c in calibrations}).values_list("pk", "username"))
+    for item in calibrations:
+        item.creator = creators.get(item.created_by_id, "—")
     categories = (("pequeno", "Pequeño"), ("mediano", "Mediano"), ("grande", "Grande"))
     return render(request, "analysis/calibration.html", {
         "calibration": calibration, "categories": categories,
+        "history": [c for c in calibrations if not c.is_active],
         "threshold_profile": ThresholdProfile.objects.first(),
     })
 
