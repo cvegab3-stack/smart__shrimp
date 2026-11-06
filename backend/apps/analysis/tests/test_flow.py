@@ -2,6 +2,7 @@
 
 import base64
 import struct
+import tempfile
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
@@ -133,6 +134,11 @@ class AnalysisFlowApiTests(TestCase):
     """Cada respuesta deja al análisis en el estado correcto y le dice a la pantalla qué ofrecer."""
 
     def setUp(self):
+        media = tempfile.TemporaryDirectory()  # las imágenes de prueba no van a la carpeta media real
+        self.addCleanup(media.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=media.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
         self.operator = User.objects.create_user("operator", password="password", role=User.Role.OPERATOR)
         self.other = User.objects.create_user("other", password="password", role=User.Role.OPERATOR)
         admin = User.objects.create_user("admin", password="password", role=User.Role.ADMINISTRATOR)

@@ -40,6 +40,9 @@ class AnalysisRecoveryFlowTests(TestCase):
     def test_failure_retry_and_finish_end_to_end(self):
         import base64
         import struct
+        import tempfile
+
+        from django.test import override_settings
 
         from django.utils import timezone
         from rest_framework.test import APIClient
@@ -54,6 +57,11 @@ class AnalysisRecoveryFlowTests(TestCase):
         create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
         api = APIClient()
         api.force_authenticate(operator)
+        media = tempfile.TemporaryDirectory()  # las imágenes de prueba no van a la carpeta media real
+        self.addCleanup(media.cleanup)
+        media_settings = override_settings(MEDIA_ROOT=media.name)
+        media_settings.enable()
+        self.addCleanup(media_settings.disable)
         sof0 = b"\xff\xc0" + struct.pack(">HBHHB", 17, 8, 480, 640, 3) + b"\x00" * 9
         image = base64.b64encode(b"\xff\xd8" + sof0 + b"\xff\xda" + b"\x00" * 10).decode()
 
