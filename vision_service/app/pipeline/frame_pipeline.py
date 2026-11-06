@@ -1,6 +1,7 @@
 """Pipeline M3 para detección, seguimiento y estimaciones disponibles."""
 
 import base64
+import logging
 
 import cv2
 import numpy as np
@@ -14,6 +15,9 @@ from app.pipeline.detector import YoloDetector
 from app.pipeline.measurement import WeightEstimator, measure_detection
 from app.pipeline.tracker import IoUTracker
 from shrimp_contracts.catalog import classes_for
+
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def _box_area(bbox) -> float:
@@ -59,7 +63,14 @@ class FramePipeline:
         oversized = len(shrimp) - len(accepted)
         rejected = [item for item in raw_detections if item["class_name"] == "no_camaron"]
         unknown = [item for item in raw_detections if item["class_name"] not in catalog_classes]
-        session.rejected_count += len(rejected) + len(unknown) + oversized
+        frame_rejected = len(rejected) + len(unknown) + oversized
+        session.rejected_count += frame_rejected
+        if frame_rejected:
+            logger.info(
+                "Descartes de detección analysis_id=%s attempt=%s frame_id=%s "
+                "recuadro_grande=%s no_camaron=%s clase_desconocida=%s",
+                session.analysis_id, session.attempt, frame_id, oversized, len(rejected), len(unknown),
+            )
         output = []
         for item in tracker.update(accepted):
             if item["hits"] < session.min_track_hits:

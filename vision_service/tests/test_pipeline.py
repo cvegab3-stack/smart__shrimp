@@ -124,12 +124,22 @@ def test_tracking_state_belongs_to_the_session():
     assert restarted.tracker is not first.tracker
 
 
-def test_oversized_box_is_rejected_not_counted():
-    pipeline = _pipeline_returning((0.0, 0.0, 100.0, 90.0))
+def test_rejection_reasons_are_logged_without_counting_rejected_detections(caplog):
+    pipeline = FramePipeline()
+    pipeline.detector.detect = lambda image, confidence: [
+        {"class_name": "camaron", "confidence": 0.9, "bbox": (0.0, 0.0, 100.0, 90.0)},
+        {"class_name": "no_camaron", "confidence": 0.9, "bbox": (1.0, 1.0, 5.0, 5.0)},
+        {"class_name": "desconocida", "confidence": 0.9, "bbox": (2.0, 2.0, 6.0, 6.0)},
+    ]
     session = VisionSession("a2", 1, 1, detection_confidence=0.5, visual_condition_confidence=0.7)
-    result = pipeline.process(session, "f1", _blank_frame())
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        result = pipeline.process(session, "f1", _blank_frame())
+
     assert result["detections"] == []
-    assert session.rejected_count == 1
+    assert result["counters"] == {"detected": 0, "counted": 0, "rejected": 3}
+    assert session.rejected_count == 3
+    assert "analysis_id=a2 attempt=1 frame_id=f1" in caplog.text
+    assert "recuadro_grande=1 no_camaron=1 clase_desconocida=1" in caplog.text
 
 
 def test_auth_dependency_rejects_missing_service_token():
