@@ -1,1 +1,4 @@
-# Pruebas y herramientas de desarrollo
+-r base.txt
+pytest>=8.3,<9.0
+pytest-django>=4.9,<5.0
+ruff>=0.9,<1.0

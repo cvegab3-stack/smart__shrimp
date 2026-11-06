@@ -1,1 +1,48 @@
-<!-- Plantilla base con menú y bloques comunes -->
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SMART SHRIMP: análisis visual de camarones.">
+  <title>{% block title %}SMART SHRIMP{% endblock %}</title>
+  {# ?v=: cambiar al modificar main.css para que el navegador no use una copia antigua guardada. #}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261104n">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+{% if request.user.is_authenticated %}
+<div class="app-shell">
+  <aside class="sidebar">
+    <a href="{% url 'dashboard' %}" class="brand" aria-label="SMART SHRIMP, inicio">
+      <span class="brand-mark" aria-hidden="true">◖</span><span><strong>SMART <span>SHRIMP</span></strong><small>Análisis visual inteligente</small></span>
+    </a>
+    <nav class="nav" aria-label="Navegación principal">
+      <a class="nav-btn{% if request.resolver_match.url_name == 'dashboard' %} active{% endif %}" href="{% url 'dashboard' %}"><span class="nav-icon">⌂</span>Inicio</a>
+      {% if request.user.role == 'operador' %}<a class="nav-btn{% if request.resolver_match.url_name == 'new-analysis' %} active{% endif %}" href="{% url 'new-analysis' %}"><span class="nav-icon">＋</span>Nuevo análisis</a><a class="nav-btn{% if request.resolver_match.url_name == 'calibration-page' %} active{% endif %}" href="{% url 'calibration-page' %}"><span class="nav-icon">⌖</span>Calibración</a>{% endif %}
+      {% if request.user.role != 'administrador' %}<a class="nav-btn{% if request.resolver_match.url_name == 'history-page' or request.resolver_match.url_name == 'results-detail-page' %} active{% endif %}" href="{% url 'history-page' %}"><span class="nav-icon">◷</span>{% if request.user.role == 'operador' %}Mis lotes{% else %}Historial{% endif %}</a>{% endif %}
+      {% if request.user.role == 'supervisor' %}<a class="nav-btn{% if request.resolver_match.url_name == 'reports-page' %} active{% endif %}" href="{% url 'reports-page' %}"><span class="nav-icon">▤</span>Reportes</a>{% endif %}
+      {% if request.user.role == 'administrador' %}
+      <a class="nav-btn{% if request.resolver_match.url_name == 'calibration-page' %} active{% endif %}" href="{% url 'calibration-page' %}"><span class="nav-icon">⌖</span>Calibración</a>
+      <a class="nav-btn{% if request.resolver_match.url_name == 'user-management' %} active{% endif %}" href="{% url 'user-management' %}"><span class="nav-icon">♙</span>Usuarios</a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-bottom"><div class="sidebar-art" aria-hidden="true">◖</div><a class="nav-btn{% if request.resolver_match.url_name == 'profile' %} active{% endif %}" href="{% url 'profile' %}"><span class="nav-icon">●</span>Mi perfil</a><a class="nav-btn" href="{% url 'logout' %}"><span class="nav-icon">↪</span>Cerrar sesión</a></div>
+  </aside>
+  <div class="main">
+    <header class="topbar"><div class="top-title">{% block top_title %}SMART SHRIMP{% endblock %}</div><div class="top-actions"><span class="chip chip-blue">{{ request.user.get_role_display }}</span><a class="user-profile-button" href="{% url 'profile' %}" aria-label="Abrir mi perfil"><span class="avatar">{{ request.user.first_name|default:request.user.username|slice:':1'|upper }}</span><span class="user-meta"><strong>{{ request.user.get_full_name|default:request.user.username }}</strong><small>Cuenta activa</small></span></a></div></header>
+{% else %}
+<div class="anonymous-shell">
+{% endif %}
+    {% block content %}{% endblock %}
+{% if request.user.is_authenticated %}
+  </div>
+</div>
+{% else %}
+</div>
+{% endif %}
+{# Ojo para mostrar/ocultar en todos los campos de contraseña. ?v=: cambiar al modificar el archivo. #}
+<script src="{% static 'js/password_toggle.js' %}?v=20261104n" defer></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

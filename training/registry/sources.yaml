@@ -1,2 +1,37 @@
 # Registro de fuentes: licencia, formato y mapeo de clases al catálogo único.
 # Las clases de integridad y presentación se mapean a sus grupos; nunca a condición visual.
+
+sources:
+  shrimp_roboflow_v4:
+    title: shrimp-object-tracking-and-counting v4 (final_version)
+    origin: Roboflow Universe, workspace espol-magof
+    url: https://universe.roboflow.com/espol-magof/shrimp-object-tracking-and-counting/dataset/4
+    license: MIT
+    attribution: "shrimp-object-tracking-and-counting, espol-magof (Roboflow Universe), licencia MIT"
+    exported: 2023-03-19
+    format: YOLOv8 (polígonos y cuadros mezclados)
+    archive: shrimp-object-tracking-and-counting.v4-final_version.yolov8.zip
+    archive_sha256: 683e314edb05703888c7eb04d71013c0fc764204da443f6f06c978f478c9bde4
+    preparation: training/scripts/prepare_shrimp_dataset.py
+    prepared_output: <SMART_SHRIMP_DATA_DIR o ../dataset>/shrimp_roboflow_v4   # junto al proyecto, fuera del código
+    scene: camarones sobre una plataforma oscura y seca con rieles metálicos; no validado en otras superficies
+    # Las 12 clases originales combinan <tamaño>-<cabeza>-<cola>.
+    class_mapping:
+      deteccion: camaron            # todas las clases originales
+      integridad:                   # candidato; pendiente de validar coherencia entre anotadores
+        concabeza-concola: [completo]
+        sincabeza-concola: [sin_cabeza]
+        concabeza-sincola: [sin_cola]
+        sincabeza-sincola: [sin_cabeza, sin_cola]   # el catálogo no tiene una clase combinada
+      tamano_visual: [grande, mediano, pequeno]    # categoría del anotador, no longitud en cm
+    not_provided:
+      - longitud real (cm) o referencia de escala
+      - peso
+      - condicion_visual (fresco/intermedio/deteriorado)
+      - presentacion (con_cascara/pelado)
+      - no_camaron (los objetos distractores no están anotados)
+    known_issues:
+      - partición original con fuga entre train/valid/test (mismos vídeos y segundos)
+      - camarones visibles sin anotar en una parte importante de las imágenes
+      - imágenes compuestas con recortes de camarón pegados
+      - cada sesión de captura contiene casi una sola clase

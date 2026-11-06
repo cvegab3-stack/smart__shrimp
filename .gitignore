@@ -6,3 +6,23 @@ training/data/
 *.pt
 *.onnx
 .venv/
+.venv312/
+.venv*/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+backend/local.sqlite3
+# Archivos auxiliares de SQLite: pueden contener datos locales de prueba
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+# Configuración local del editor y registros de ejecución
+.vscode/
+*.log
+# Datos y modelos generados por training/ (no versionar imágenes ni pesos)
+datasets/
+training/runs/
+runs/
+*.cache
+# Excepción: el modelo que usa la aplicación viaja con el código
+!models/detector/best.pt

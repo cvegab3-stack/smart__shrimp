@@ -1,1 +1,38 @@
-<!-- Panel de resultados (totales por condición visual con no concluyentes). -->
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Resultados · SMART SHRIMP{% endblock %}
+{% block top_title %}Resultados del análisis{% endblock %}
+{% block content %}
+<main class="page">
+  <header class="page-head"><div><p class="eyebrow">DETALLE DEL LOTE</p><h1>{{ analysis.batch_code }}</h1><p>{{ analysis.created_at|date:'d/m/Y H:i' }} · {{ analysis.get_source_display }} · intento {{ analysis.current_attempt }}</p></div><div class="head-actions">{% if request.user.role == 'supervisor' and analysis.status == 'finalizado' %}<a class="btn btn-secondary" href="/api/history/{{ analysis.pk }}/export.csv/">Exportar CSV</a><a class="btn btn-secondary" href="/api/history/{{ analysis.pk }}/export.pdf/">Exportar PDF</a>{% endif %}<a class="btn btn-secondary" href="{% url 'history-page' %}">Volver al historial</a></div></header>
+  <div class="stepper" aria-label="Pasos del análisis"><div class="step done"><span class="step-number">✓</span><span>Identificación</span></div><div class="step done"><span class="step-number">✓</span><span>Captura</span></div><div class="step active"><span class="step-number">3</span><span>Resultados</span></div></div>
+  <span class="chip {% if analysis.status == 'finalizado' %}chip-green{% elif analysis.status == 'con_error' %}chip-red{% else %}chip-blue{% endif %}">{{ analysis.get_status_display }}</span>
+  {% if analysis.status == 'con_error' %}<div class="alert alert-error" role="alert"><strong>{{ analysis.error_code }}</strong> {{ analysis.error_message }}</div>{% endif %}
+  <section class="grid kpi-grid" aria-label="Resumen del análisis">
+    <article class="kpi"><div class="kpi-icon">◖</div><label>Camarones detectados</label><strong>{{ analysis.shrimp_count }}</strong><small>Conteo del servicio de visión</small></article>
+    <article class="kpi"><div class="kpi-icon">↔</div><label>Longitud promedio</label><strong>{{ summary.length_avg|default:"—" }}</strong><small>{% if summary.length_min %}De {{ summary.length_min }} a {{ summary.length_max }}{% else %}Sin medidas{% endif %}</small></article>
+    <article class="kpi"><div class="kpi-icon">⌖</div><label>Calibración aplicada</label><strong>v{{ analysis.calibration.version }}</strong><small>Congelada al iniciar el análisis</small></article>
+    <article class="kpi"><div class="kpi-icon">↻</div><label>Intento</label><strong>{{ analysis.current_attempt }}</strong><small>Último procesamiento</small></article>
+  </section>
+  <section class="grid result-grid">
+    <article class="card"><div class="card-head"><div><h2>Imagen analizada</h2><p>{% if analysis.source == 'video' %}Último fotograma con camarones de la grabación.{% else %}La imagen adjuntada, con un recuadro por camarón.{% endif %}</p></div></div>
+      {% if summary.snapshot_url %}<figure class="snapshot" data-boxes-id="snapshot-boxes"{% if summary.calibration_resolution %} data-calibration-width="{{ analysis.calibration.image_width }}" data-calibration-height="{{ analysis.calibration.image_height }}"{% endif %}><img src="{{ summary.snapshot_url }}" alt="Imagen analizada con un recuadro sobre cada camarón detectado"></figure>{{ summary.boxes|json_script:"snapshot-boxes" }}
+      {% else %}<div class="empty"><div><div class="empty-icon">◖</div><h2>Sin imagen guardada</h2><p>Los análisis anteriores a esta versión no guardaban la imagen.</p></div></div>{% endif %}
+      {% if summary.total %}<div class="size-counts">{% for item in summary.counts %}<span class="size-chip size-{{ item.key }}"><strong>{{ item.count }}</strong><span>{{ item.name }}</span></span>{% endfor %}</div>
+      {% else %}<div class="alert alert-info result-empty">{% if summary.rejected %}No se contó ningún camarón.{% else %}No se detectó ningún camarón. Comprueba que se vean bien y que la imagen no esté borrosa ni oscura.{% endif %}</div>{% endif %}
+      {% if summary.close_up %}<div class="alert alert-amber result-empty">{% if summary.close_up == 1 %}1 camarón ocupa{% else %}{{ summary.close_up }} camarones ocupan{% endif %} casi toda la imagen (foto demasiado cercana): su medida puede no ser fiable. Aleja la cámara hasta la posición de la calibración.</div>{% endif %}
+      {% if summary.rejected_text %}<p class="result-note">{{ summary.rejected_text }}</p>{% endif %}
+    </article>
+    <article class="card"><div class="card-head"><div><h2>Calibración</h2><p>Referencia conservada con el lote.</p></div></div><div class="metric-list"><div class="metric-row"><span>Longitud de referencia</span><strong>{{ analysis.calibration.reference_length_cm }} cm</strong></div><div class="metric-row"><span>Referencia en píxeles</span><strong>{{ analysis.calibration.reference_pixels }} px</strong></div><div class="metric-row"><span>Medida en una imagen de</span><strong>{{ analysis.calibration.resolution|default:"No registrada" }}</strong></div><div class="metric-row"><span>Detecciones descartadas</span><strong>{{ analysis.rejected_count }}</strong></div></div><div class="notice"><strong>Información importante:</strong> peso y longitud son valores estimados. La condición visual no reemplaza análisis microbiológicos, químicos ni sanitarios.</div></article>
+    <article class="card span-2"><div class="card-head"><div><h2>Detalle por camarón</h2><p>El número coincide con el del recuadro en la imagen.</p></div></div>
+      {% if summary.rows %}<div class="table-wrap"><table class="data-table result-table"><thead><tr><th>Camarón</th><th>Longitud</th><th>Tamaño</th>{% if summary.show_condition %}<th>Condición visual</th>{% endif %}{% if summary.show_weight %}<th>Peso estimado</th>{% endif %}</tr></thead><tbody>
+      {% for row in summary.rows %}<tr><td><strong>Camarón {{ row.number }}</strong></td><td>{{ row.length }}{% if row.close_up %} <small class="result-note">(primer plano, poco fiable)</small>{% endif %}</td><td><span class="size-chip size-{{ row.size_key }}">{{ row.size }}</span></td>{% if summary.show_condition %}<td>{{ row.condition }}</td>{% endif %}{% if summary.show_weight %}<td>{{ row.weight }}</td>{% endif %}</tr>{% endfor %}
+      </tbody></table></div>
+      {% if not summary.show_condition or not summary.show_weight %}<p class="result-note">Condición visual y peso: aún no disponibles (el sistema todavía no tiene esos modelos entrenados).</p>{% endif %}
+      {% for item in summary.counts %}{% if item.key == 'fuera' %}<p class="result-note">«Fuera de rango»: su longitud no entra en ningún rango de tamaño de la calibración v{{ analysis.calibration.version }}.</p>{% endif %}{% endfor %}
+      {% else %}<div class="empty"><div><div class="empty-icon">◖</div><h2>No hay registros por ejemplar</h2><p>Este análisis no tiene resultados completos guardados.</p></div></div>{% endif %}
+    </article>
+  </section>
+</main>
+<script src="{% static 'js/results_panel.js' %}?v=20261104n" defer></script>
+{% endblock %}

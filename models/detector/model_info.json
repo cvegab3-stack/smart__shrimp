@@ -1,0 +1,46 @@
+{
+  "file": "best.pt",
+  "sha256": "98112a05dbd0f7c063aff4c4758228b2464f92071480b811f99064b2c95e4ea7",
+  "size_bytes": 6506154,
+  "task": "detect",
+  "architecture": "YOLOv8n (Ultralytics 8.4.201)",
+  "classes": {"0": "camaron"},
+  "class_note": "Entrenado con single_cls: el archivo guarda el nombre 'item'; vision_service lo traduce a 'camaron'.",
+  "promoted_at": "2026-11-04",
+  "previous_model": {
+    "backup": "models/detector/backup/best_v1_shrimp_reviewed_pilot_gpu_20261103.pt",
+    "backup_info": "models/detector/backup/model_info_v1_shrimp_reviewed_pilot_gpu_20261103.json",
+    "sha256": "892cc29f53e94ecea6bd98573ca1ea129630fbdede809d53de3c53e92aba0b06",
+    "run": "shrimp_reviewed_pilot_gpu"
+  },
+  "source": {
+    "copied_from": "training/runs/detector/camaron_v2_combined_dry_r2/weights/best.pt",
+    "run": "camaron_v2_combined_dry_r2",
+    "trained_at": "2026-11-04T09:34:15-05:00",
+    "best_epoch": 28,
+    "initial_weights": "models/detector/best.pt (sha256 892cc29f…, modelo anterior shrimp_reviewed_pilot_gpu)",
+    "dataset": "C:/Users/JOHN/Downloads/smart shirimp/dataset/shrimp_combined_v2 (detect_grouped_reviewed_v1 + Shrimp.v1i.yolov8.zip, camarones sobre superficie seca; ver manifest.json)",
+    "dataset_license": "MIT (shrimp-object-tracking-and-counting v4, espol-magof) + CC BY 4.0 (shrimp-nwcf0 v1, Roboflow Universe)",
+    "train_args": {"epochs": 30, "imgsz": 640, "batch": 8, "single_cls": true, "seed": 0, "device": "0", "patience": 20, "close_mosaic": 10}
+  },
+  "known_metrics": {
+    "report": "training/runs/detector/eval/compare_actual_vs_v2_r2/report.json",
+    "val_combined": {"images": 527, "objects": 644, "precision": 0.992, "recall": 0.969, "mAP50": 0.984, "mAP50_95": 0.940},
+    "test_old": {"images": 347, "objects": 697, "mAP50": 0.894, "mAP50_95": 0.785, "at_conf_0.5": {"precision": 0.978, "recall": 0.704, "count_exact": 0.556}},
+    "test_new": {"images": 40, "objects": 88, "mAP50": 0.973, "mAP50_95": 0.787, "at_conf_0.5": {"precision": 1.0, "recall": 0.886, "count_exact": 0.80}},
+    "test_evaluated": true,
+    "test_old_reproduced": {
+      "report": "docs/evidence/detector_test/report.json",
+      "script": "training/scripts/evaluate_test_split.py",
+      "date": "2026-11-04",
+      "note": "Reproduce test_old (mismas 347 imágenes y 697 objetos) con separación de train/val comprobada. test_new no reproducido: falta shrimp_combined_v2 en este equipo."
+    }
+  },
+  "limitations": [
+    "Test de imágenes nuevas pequeño (40 imágenes, 88 camarones): las métricas de superficie seca tienen bastante incertidumbre.",
+    "Falsos positivos en recortes sin camarón de las fotos nuevas (11/32 en test, 16/22 en val a conf 0.5): falta entrenar con fondos secos vacíos.",
+    "Recall en test_old a conf 0.5 de 0.70: omite camarones en escenas densas de la plataforma original.",
+    "No entrenado con imágenes dentro del agua; no usar en esa condición.",
+    "Las anotaciones originales omiten camarones visibles; solo una parte se corrigió en la revisión."
+  ]
+}

@@ -1,1 +1,56 @@
-<!-- Pantalla de calibración -->
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Calibración · SMART SHRIMP{% endblock %}
+{% block top_title %}Parámetros de medición{% endblock %}
+{% block content %}
+<main class="page">
+  <header class="page-head"><div><p class="eyebrow">CONFIGURACIÓN</p><h1>Calibración y umbrales</h1><p>Las referencias aplicadas a análisis anteriores se conservan como versiones históricas.</p></div></header>
+  {% if request.user.role == 'operador' %}<div class="alert alert-info"><strong>Vista de solo lectura:</strong> puedes consultar la referencia, pero solo administración puede cambiarla.</div>{% endif %}
+  <section class="settings-grid">
+    <article class="card"><div class="card-head"><div><h2>Referencia vigente</h2><p>Configurada por administración.</p></div><span class="settings-icon">⌖</span></div>
+      {% if calibration %}<p><span class="chip chip-green">Activa · versión {{ calibration.version }}</span>{% if calibration.based_on_version %} <span class="chip chip-blue">Basada en la versión {{ calibration.based_on_version }}</span>{% endif %}</p><div class="metric-list"><div class="metric-row"><span>Medida de referencia</span><strong>{{ calibration.reference_length_cm }} cm</strong></div><div class="metric-row"><span>Medida en píxeles</span><strong>{{ calibration.reference_pixels }} px</strong></div><div class="metric-row"><span>Escala resultante</span><strong>1 cm = {{ calibration.pixels_per_cm|floatformat:"-2" }} px</strong></div><div class="metric-row"><span>Medida en una imagen de</span><strong>{{ calibration.resolution|default:"No registrada" }}</strong></div></div>{% if calibration.scale_warning %}<div class="alert alert-amber calibration-warning" role="status">{{ calibration.scale_warning }}</div>{% endif %}<h3 class="section-subtitle">Rangos de tamaño</h3><div class="size-bars">{% for band in calibration.size_bands %}<div class="metric-row"><span>{{ band.name }}</span><strong>{{ band.text }}</strong></div>{% endfor %}</div>
+      {% else %}<div class="empty"><div><div class="empty-icon">⌖</div><h2>Sin calibración vigente</h2><p>Configura una referencia antes de iniciar análisis.</p></div></div>{% endif %}
+      {% if history %}
+      <h3 class="section-subtitle">Historial de versiones</h3>
+      <p class="field-help">«Usar esta versión» la pone en uso tal cual, sin crear otra. Los análisis ya hechos conservan la versión con la que se midieron.</p>
+      <div class="calibration-history" id="calibration-history">
+        {% for item in history %}
+        <div class="history-item">
+          <div class="history-top"><strong>Versión {{ item.version }}</strong><span class="chip">Anterior</span>{% if item.based_on_version %}<span class="chip chip-blue">Basada en la versión {{ item.based_on_version }}</span>{% endif %}</div>
+          <small class="history-meta">{{ item.created_at|date:"d/m/Y · H:i" }} · por {{ item.creator }} · usada en {{ item.analyses }} análisis</small>
+          <div class="history-values"><span><strong>{{ item.reference_length_cm|floatformat:"-2" }} cm = {{ item.reference_pixels }} px</strong> (1 cm = {{ item.pixels_per_cm|floatformat:"-2" }} px){% if item.resolution %} · medida en {{ item.resolution }}{% endif %}</span><span>{% for band in item.size_bands %}{{ band.name }}: {{ band.text }}{% if not forloop.last %} · {% endif %}{% endfor %}</span></div>
+          {% if request.user.role == 'administrador' %}{% if item.reuse_error %}<p class="history-blocked">No se puede volver a usar con las reglas actuales: {{ item.reuse_error }}</p>{% else %}<div class="history-actions"><button class="btn btn-secondary" type="button" data-activate-version="{{ item.version }}">Usar esta versión</button><span class="history-message" role="status"></span></div>{% endif %}{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </article>
+    {% if request.user.role == 'administrador' %}
+    <article class="card"><div class="card-head"><div><h2>Registrar nueva versión</h2><p>Ingresa una referencia física y bandas sin solapamiento.</p></div><span class="chip chip-blue">Nueva versión</span></div>
+      <form id="calibration-form" class="form-grid">{% csrf_token %}
+        <div class="form-grid form-grid-two"><div class="field"><label for="reference-length">Medida de referencia (cm)</label><input id="reference-length" name="reference_length_cm" type="number" min="0.001" step="0.001" placeholder="Ej.: 10" required><small class="field-help">Longitud real de un objeto medido con regla (p. ej. una regla de 10 cm sobre la bandeja).</small></div><div class="field"><label for="reference-pixels">Medida equivalente (px)</label><input id="reference-pixels" name="reference_pixels" type="number" min="20" step="1" placeholder="Ej.: 400" required><small class="field-help">Píxeles que ocupa ese mismo objeto en una foto de la cámara del análisis, sin recortar ni redimensionar (mínimo 20 px).</small></div></div>
+        <button class="btn btn-secondary measure-open" id="measure-open" type="button" hidden>📏 Medir los píxeles con la cámara o una foto</button>
+        <div id="measure-panel" class="measure-panel" hidden>
+          <div class="measure-head"><strong>Medir la referencia en una imagen</strong><button class="btn btn-ghost" id="measure-close" type="button">Cerrar</button></div>
+          <ol class="measure-steps"><li>Coloca una regla sobre la bandeja, con la cámara en su posición real de trabajo.</li><li>Abre la cámara que usarás en los análisis y toma una foto, o sube una foto de esa misma cámara (sin recortar).</li><li>Haz clic en la marca <strong>0</strong> de la regla y luego en la marca final (p. ej. <strong>10</strong>). Escribe esos cm en «Medida de referencia».</li></ol>
+          <div class="measure-sources"><select id="measure-camera" aria-label="Cámara"><option value="">Cámara predeterminada</option></select><button class="btn btn-secondary" id="measure-start-camera" type="button">Abrir cámara</button><button class="btn btn-teal" id="measure-capture" type="button" hidden>Tomar foto</button><label class="btn btn-secondary" for="measure-file">Subir foto</label><input id="measure-file" type="file" accept="image/*" hidden></div>
+          <video id="measure-video" class="measure-media" autoplay muted playsinline hidden></video>
+          <canvas id="measure-canvas" class="measure-media measure-canvas" hidden></canvas>
+          <p id="measure-status" class="measure-status" role="status"></p>
+          <div class="measure-actions"><button class="btn btn-secondary" id="measure-reset" type="button" hidden>Volver a marcar</button><button class="btn btn-teal" id="measure-apply" type="button" disabled>Usar esta medida</button></div>
+        </div>
+        <input type="hidden" id="reference-image-width"><input type="hidden" id="reference-image-height"><div id="scale-preview" class="scale-preview" role="status" hidden></div>
+        <h3 class="section-subtitle">Rangos de tamaño (cm)</h3>
+        {% for cat,label in categories %}<div class="range-row"><strong>{{ label }}</strong><div class="field"><label for="{{ cat }}-min">Mínimo</label><input id="{{ cat }}-min" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Sin límite"></div><div class="field"><label for="{{ cat }}-max">Máximo</label><input id="{{ cat }}-max" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Sin límite"></div></div>{% endfor %}
+        <div class="notice"><strong>Información importante:</strong> el máximo de cada categoría rellena el mínimo de la siguiente (puedes editarlo). Una medida igual al límite cuenta en la categoría menor: con pequeño hasta 8 y mediano desde 8, un camarón de 8 cm es pequeño. Un límite vacío significa «sin límite».</div>
+        <button class="btn btn-primary" type="submit">Guardar nueva versión</button><div id="calibration-message" role="status"></div>
+      </form>
+    </article>
+    <article class="card"><div class="card-head"><div><h2>Umbrales del procesamiento</h2><p>Qué tan seguro debe estar el sistema (de 0 a 1) para aceptar un resultado.</p></div><span class="settings-icon">◎</span></div>
+      <form id="threshold-form" class="form-grid">{% csrf_token %}<div class="form-grid form-grid-two"><div class="field"><label for="detection-threshold">Confianza mínima de detección</label><input id="detection-threshold" type="number" min="0" max="1" step="0.01" value="{% if threshold_profile %}{{ threshold_profile.detection_confidence|stringformat:"s" }}{% endif %}" required><small class="field-help">Solo se cuenta como camarón lo que el modelo reconoce con al menos esta seguridad. Más alto: menos falsos (manos, objetos) pero se escapan camarones. Más bajo: lo contrario. Recomendado: <strong>0.5</strong>.</small></div><div class="field"><label for="condition-threshold">Confianza mínima de condición visual</label><input id="condition-threshold" type="number" min="0" max="1" step="0.01" value="{% if threshold_profile %}{{ threshold_profile.visual_condition_confidence|stringformat:"s" }}{% endif %}" required><small class="field-help">Lo mismo para fresco / intermedio / deteriorado; por debajo sale «no concluyente». Aún no hay clasificador de condición, así que hoy no tiene efecto.</small></div></div><button class="btn btn-teal" type="submit">Guardar umbrales</button><div id="threshold-message" role="status"></div></form>
+    </article>
+    {% endif %}
+  </section>
+</main>
+{% if request.user.role == 'administrador' %}<script src="{% static 'js/calibration.js' %}?v=20261104n" defer></script><script src="{% static 'js/calibration_measure.js' %}?v=20261104n" defer></script>{% endif %}
+{% endblock %}

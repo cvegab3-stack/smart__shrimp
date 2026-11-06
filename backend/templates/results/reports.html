@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Reportes · SMART SHRIMP{% endblock %}
+{% block top_title %}Reportes de producción{% endblock %}
+{% block content %}
+<main class="page">
+  <header class="page-head"><div><p class="eyebrow">SUPERVISIÓN</p><h1>Reportes de producción</h1><p>Consolida análisis finalizados y descarga informes del período.</p></div></header>
+  <section class="card"><div class="card-head"><div><h2>Generar reporte</h2><p>El informe refleja únicamente análisis guardados y finalizados.</p></div><span class="settings-icon">▤</span></div>
+    <form id="report-create-form" class="form-grid form-grid-two">{% csrf_token %}<div class="field"><label for="report-from">Desde</label><input id="report-from" type="date" required></div><div class="field"><label for="report-to">Hasta</label><input id="report-to" type="date" required></div><button class="btn btn-primary" type="submit">Generar reporte</button></form><div id="report-message" role="status" aria-live="polite"></div>
+  </section>
+  <section class="card"><div class="card-head"><div><h2>Reportes generados</h2><p>CSV y PDF contienen los mismos indicadores guardados.</p></div></div>
+    {% if reports %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Período</th><th>Generado</th><th>Análisis</th><th>Camarones</th><th>Peso promedio estimado</th><th>Descargas</th></tr></thead><tbody>
+    {% for report in reports %}<tr><td><strong>{{ report.date_from|date:'d/m/Y' }} – {{ report.date_to|date:'d/m/Y' }}</strong></td><td>{{ report.created_at|date:'d/m/Y H:i' }}</td><td>{{ report.summary.analysis_count }}</td><td>{{ report.summary.shrimp_count }}</td><td>{% if report.summary.average_estimated_weight_g != None %}{{ report.summary.average_estimated_weight_g|floatformat:2 }} g · valor estimado{% else %}No disponible · valor estimado{% endif %}</td><td><a class="btn btn-secondary" href="/api/reports/{{ report.pk }}/export.csv/">CSV</a> <a class="btn btn-secondary" href="/api/reports/{{ report.pk }}/export.pdf/">PDF</a></td></tr>
+    <tr><td colspan="6"><div class="report-breakdown"><span><strong>Tamaños:</strong> {% for key,count in report.summary.size_distribution.items %}{{ key|title }} {{ count }}{% if not forloop.last %} · {% endif %}{% empty %}No disponibles{% endfor %}</span><span><strong>Condición visual:</strong> {% for key,count in report.summary.visual_condition_distribution.items %}{% if key == 'fresco' %}Fresco{% elif key == 'intermedio' %}Intermedio{% elif key == 'deteriorado' %}Deteriorado{% else %}No concluyente{% endif %} {{ count }}{% if not forloop.last %} · {% endif %}{% empty %}No disponibles{% endfor %}</span><small>La condición es solo visual y no reemplaza análisis microbiológicos, químicos ni sanitarios.</small></div></td></tr>
+    {% endfor %}</tbody></table></div>{% else %}<div class="empty"><div><div class="empty-icon">▤</div><h2>Sin reportes generados</h2><p>Selecciona un período para crear el primero.</p></div></div>{% endif %}
+  </section>
+</main>
+<script src="{% static 'js/reports.js' %}" defer></script>
+{% endblock %}
