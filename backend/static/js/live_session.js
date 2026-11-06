@@ -121,7 +121,15 @@
     container.prepend(warning); }
 
   const dropzone = $("#image-dropzone"); const dropzoneFile = $("#dropzone-file"); let dropNote = "";
-  const showChosen = (name) => { dropzoneFile.textContent = name ? `Imagen elegida: ${name}` : ""; dropzoneFile.hidden = !name; dropzone.classList.toggle("has-file", Boolean(name)); };
+  // Con una imagen elegida, el recuadro grande se reduce a una barra: nombre de la foto y «Cambiar imagen»
+  // (sigue aceptando que se suelte otra foto encima). Sin imagen, vuelve a ser el recuadro para arrastrar o elegir.
+  const imageHelp = $("#analysis-image-help");
+  const showChosen = (name) => {
+    dropzoneFile.replaceChildren();
+    if (name) { const { el } = window.SmartShrimp;
+      dropzoneFile.append(el("span", "dropzone-file-name", `Imagen elegida: ${name}`), el("span", "dropzone-link", "Cambiar imagen")); }
+    dropzoneFile.hidden = !name; imageHelp.hidden = Boolean(name); dropzone.classList.toggle("has-file", Boolean(name));
+  };
   imageInput.addEventListener("change", async () => {
     const file = imageInput.files?.[0]; selectedFile = null; processImageButton.disabled = true; preview.hidden = true; showImageProblem(""); warnResolution(0, 0, imageControls); showChosen("");
     if (!file) return;
