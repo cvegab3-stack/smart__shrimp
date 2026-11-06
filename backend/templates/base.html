@@ -7,9 +7,9 @@
   <meta name="description" content="SMART SHRIMP: análisis visual de camarones.">
   <title>{% block title %}SMART SHRIMP{% endblock %}</title>
   {# ?v=: cambiar al modificar main.css para que el navegador no use una copia antigua guardada. #}
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261106b">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261107a">
   {# Peticiones a la API (CSRF y errores) compartidas por todas las páginas: en el <head> para que esté antes que los demás scripts. #}
-  <script src="{% static 'js/common.js' %}?v=20261106b" defer></script>
+  <script src="{% static 'js/common.js' %}?v=20261107a" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
 {# data-session-*: duración de la sesión para el aviso de vencimiento (session_timeout.js), solo con sesión. #}
