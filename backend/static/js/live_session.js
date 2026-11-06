@@ -7,18 +7,8 @@
   const imageInput = document.querySelector("#analysis-image"); const preview = document.querySelector("#image-preview"); const processImageButton = document.querySelector("#process-image");
   const video = document.querySelector("#camera-video"); const cameraSelect = document.querySelector("#camera-select"); const startCameraButton = document.querySelector("#start-camera"); const finishVideoButton = document.querySelector("#finish-video"); const captureStatus = document.querySelector("#capture-status");
   let analysis = null; let stream = null; let streaming = false; let loopPromise = null;
-  const csrf = () => document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("csrftoken="))?.split("=").slice(1).join("=");
-  async function api(url, method = "GET", payload = null) {
-    const response = await fetch(url, { method, credentials: "same-origin", headers: payload ? { "Content-Type": "application/json", "X-CSRFToken": csrf() || "" } : {}, body: payload ? JSON.stringify(payload) : undefined });
-    const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(errorMessage(data) || `Solicitud fallida (${response.status}).`); error.data = data; throw error; } return data;
-  }
-  // DRF devuelve los errores como lista, {detail} o {campo: [mensajes]}.
-  function errorMessage(data) {
-    if (Array.isArray(data)) return data.join(" ");
-    if (!data || typeof data !== "object") return "";
-    if (data.error_message || data.detail) return data.error_message || data.detail;
-    return Object.values(data).flat().filter((value) => typeof value === "string").join(" ");
-  }
+  // common.js: si falla, error.data trae el cuerpo (p. ej. el análisis que quedó en error, para reintentarlo).
+  const api = (url, method = "GET", body) => window.SmartShrimp.request(url, { method, body });
   const showError = (message) => { errorPanel.textContent = message; errorPanel.hidden = false; };
   // Indicador de pasos: 1 Identificación → 2 Captura → 3 Resultados.
   function setStep(current) { document.querySelectorAll("#analysis-stepper .step").forEach((step, index) => { const number = index + 1;

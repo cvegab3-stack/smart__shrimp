@@ -1,0 +1,65 @@
+# Despliegue completo en Linux con Docker: PostgreSQL + servicio de visión (GPU) + Django + nginx.
+#   cp .env.docker.example .env.docker      # y completa claves y contraseñas
+#   docker compose up -d --build
+# Abre http://<servidor>/ . Detalles, HTTPS y modo solo CPU: sección "Docker" de README.md.
+# Solo nginx publica un puerto; Django, visión y la base de datos quedan en la red interna de Docker.
+name: smart-shrimp
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env.docker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vision:
+    build:
+      context: .
+      dockerfile: vision_service/Dockerfile
+    restart: unless-stopped
+    env_file: .env.docker
+    # GPU NVIDIA (requiere NVIDIA Container Toolkit). Sin GPU: añade -f docker-compose.cpu.yml.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  django:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+      vision:
+        condition: service_started
+    volumes:
+      - media:/app/backend/media          # imágenes de los análisis (Django las sirve comprobando permisos)
+      - static:/app/backend/staticfiles   # estáticos copiados al arrancar; nginx los sirve
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - django
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - static:/srv/static:ro
+
+volumes:
+  pgdata:
+  media:
+  static:

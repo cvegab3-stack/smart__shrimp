@@ -1,6 +1,7 @@
 """Serializadores de API para administración de cuentas."""
 
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
@@ -30,7 +31,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserCreateSerializer(serializers.Serializer):
     """Valida los campos requeridos al crear una cuenta."""
 
-    username = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=150, validators=[UnicodeUsernameValidator()])
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     role = serializers.ChoiceField(choices=User.Role.choices)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
@@ -68,7 +69,20 @@ class PasswordSetSerializer(serializers.Serializer):
 
 
 class UserUpdateSerializer(serializers.Serializer):
-    """Valida cambios de rol o activación."""
+    """Valida la edición de una cuenta: datos personales, usuario, rol o activación (todos opcionales).
 
+    Necesita la cuenta editada en el contexto ("user") para comprobar que el nuevo usuario no choque con otra.
+    """
+
+    username = serializers.CharField(max_length=150, required=False, validators=[UnicodeUsernameValidator()])
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
     role = serializers.ChoiceField(choices=User.Role.choices, required=False)
     is_active = serializers.BooleanField(required=False)
+
+    def validate_username(self, value):
+        # Igual que al crear: sin distinguir mayúsculas, excluyendo la propia cuenta ("ana" -> "Ana" es válido).
+        if User.objects.filter(username__iexact=value).exclude(pk=self.context["user"].pk).exists():
+            raise serializers.ValidationError("Ese nombre de usuario ya está registrado.")
+        return value

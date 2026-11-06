@@ -1,0 +1,24 @@
+# Lo que nunca entra en las imágenes de Docker (datos locales, entornos, secretos y material de entrenamiento).
+.git
+.github
+.vscode
+.venv*
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+.pytest_cache
+.ruff_cache
+*.log
+.env
+.env.*
+backend/*.sqlite3*
+backend/media
+backend/staticfiles
+models/detector/backup
+training
+datasets
+runs
+docs
+samples
+tests_integration
+infra

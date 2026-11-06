@@ -7,6 +7,8 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "insecure-local-development-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "0").lower() in {"1", "true", "yes"}
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
+# Orígenes extra para CSRF, p. ej. "https://smartshrimp.example.com" detrás de un proxy que cambie el puerto.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
@@ -25,6 +27,7 @@ TEMPLATES = [{
     "OPTIONS": {"context_processors": [
         "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
+        "apps.accounts.context_processors.account_settings",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
@@ -38,9 +41,13 @@ DATABASES = {"default": {
     "PORT": os.getenv("POSTGRES_PORT", "5432"),
     "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
 }}
+# Reglas de contraseña: longitud mínima (por defecto 8), no parecerse a los datos de la cuenta, no ser común y no
+# ser solo números. Se aplican al crear cuentas, al asignarlas el administrador y al cambiarlas el usuario.
+PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": PASSWORD_MIN_LENGTH}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -54,10 +61,17 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-SESSION_COOKIE_AGE = 30 * 60
+# La sesión vence tras SESSION_IDLE_MINUTES sin peticiones (cada petición la renueva) o al cerrar el navegador.
+# La página avisa SESSION_WARNING_SECONDS antes y, al vencer, lleva al acceso (static/js/session_timeout.js).
+SESSION_COOKIE_AGE = int(os.getenv("SESSION_IDLE_MINUTES", "30")) * 60
+SESSION_WARNING_SECONDS = int(os.getenv("SESSION_WARNING_SECONDS", "120"))
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-REST_FRAMEWORK = {"DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"]}
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # Sin sesión la API responde 401 (no 403), para que la página distinga "sesión vencida" de "sin permiso".
+    "EXCEPTION_HANDLER": "apps.accounts.api.exceptions.exception_handler",
+}
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/accounts/login/"
 VISION_SERVICE_URL = os.getenv("VISION_SERVICE_URL", "http://vision:8001")

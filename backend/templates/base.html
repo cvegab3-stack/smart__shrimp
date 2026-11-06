@@ -7,10 +7,13 @@
   <meta name="description" content="SMART SHRIMP: análisis visual de camarones.">
   <title>{% block title %}SMART SHRIMP{% endblock %}</title>
   {# ?v=: cambiar al modificar main.css para que el navegador no use una copia antigua guardada. #}
-  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261104n">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}?v=20261106b">
+  {# Peticiones a la API (CSRF y errores) compartidas por todas las páginas: en el <head> para que esté antes que los demás scripts. #}
+  <script src="{% static 'js/common.js' %}?v=20261106b" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+{# data-session-*: duración de la sesión para el aviso de vencimiento (session_timeout.js), solo con sesión. #}
+<body{% if request.user.is_authenticated %} data-session-idle="{{ session_idle_seconds }}" data-session-warning="{{ session_warning_seconds }}" data-login-url="{% url 'login' %}" data-logout-url="{% url 'logout' %}" data-keepalive-url="{% url 'session-keepalive' %}"{% endif %}>
 {% if request.user.is_authenticated %}
 <div class="app-shell">
   <aside class="sidebar">
@@ -43,6 +46,9 @@
 {% endif %}
 {# Ojo para mostrar/ocultar en todos los campos de contraseña. ?v=: cambiar al modificar el archivo. #}
 <script src="{% static 'js/password_toggle.js' %}?v=20261104n" defer></script>
+{# Lista de reglas que se marca al escribir una contraseña nueva (campos con data-password-rules). #}
+<script src="{% static 'js/password_rules.js' %}?v=20261106a" defer></script>
+{% if request.user.is_authenticated %}<script src="{% static 'js/session_timeout.js' %}?v=20261106b" defer></script>{% endif %}
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>

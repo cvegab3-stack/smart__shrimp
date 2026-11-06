@@ -1,0 +1,13 @@
+# Variante sin GPU: el servicio de visión usa PyTorch solo CPU (funciona, pero analiza más lento).
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d --build
+# Requiere Docker Compose 2.24.4 o posterior (etiqueta !reset).
+services:
+  vision:
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+        TORCH_PACKAGES: "torch==2.15.0 torchvision==0.29.2"
+    deploy:
+      resources:
+        reservations:
+          devices: !reset []
