@@ -1,0 +1,12 @@
+# Variante con HTTPS: nginx usa infra/nginx/nginx.prod.conf y los certificados de infra/nginx/certs/
+# (fullchain.pem y privkey.pem, p. ej. de Let's Encrypt). En .env.docker deja DJANGO_HTTPS=1.
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+services:
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ./infra/nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+      - static:/srv/static:ro

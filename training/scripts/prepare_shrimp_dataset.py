@@ -54,7 +54,7 @@ OVERLAP_IOU = 0.9
 DHASH_SIDE = 16
 
 NAME_RE = re.compile(
-    r"^(?P<source>WIN_(?P<ts>\d{8}_\d{2}_\d{2}_\d{2})_Pro(?:-(?P<burst>\d+)-)?(?:_mp4-(?P<frame>\d+))?)"
+    r"^(?P<source>WIN_(?P<ts>\d{8}_\d{2}_\d{2}_\d{2})_Pro(?:-\d+-)?(?:_mp4-(?P<frame>\d+))?)"
     r"_(?P<ext>jpe?g|png)\.rf\.(?P<rf>[0-9a-f]+)\.(?:jpe?g|png)$",
     re.IGNORECASE,
 )
@@ -97,7 +97,6 @@ class ImageRecord:
     timestamp: dt.datetime | None = None
     video_id: str | None = None
     video_frame: int | None = None
-    burst: int | None = None
     width: int = 0
     height: int = 0
     image_format: str = ""
@@ -405,7 +404,6 @@ def audit_zip(zip_path: Path) -> tuple[dict, list[ImageRecord], dict]:
             if match:
                 rec.source = match["source"]
                 rec.timestamp = dt.datetime.strptime(match["ts"], "%Y%m%d_%H_%M_%S")
-                rec.burst = int(match["burst"]) if match["burst"] else None
                 if match["frame"] is not None:
                     rec.video_id = f"WIN_{match['ts']}_Pro.mp4"
                     rec.video_frame = int(match["frame"])

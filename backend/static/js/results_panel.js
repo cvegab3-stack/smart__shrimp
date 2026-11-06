@@ -3,7 +3,7 @@
 // página de detalle (Mis lotes). Los datos llegan ya traducidos desde apps/results/services/presentation_service.py.
 // Todo el texto se inserta con textContent: nada de lo recibido se interpreta como HTML.
 (() => {
-  const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
+  const { el } = window.SmartShrimp;  // common.js
 
   // Dibuja los recuadros sobre la imagen. bbox viene en píxeles de la imagen original: se pasa a porcentajes para
   // que encajen a cualquier tamaño en pantalla.

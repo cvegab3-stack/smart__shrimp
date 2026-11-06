@@ -1,1 +1,3 @@
 -r base.txt
+# Controlador de PostgreSQL (la configuración de producción usa PostgreSQL; el desarrollo local, SQLite).
+psycopg[binary]>=3.2,<4.0

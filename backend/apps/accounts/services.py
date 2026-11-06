@@ -131,19 +131,62 @@ def password_changes() -> dict[int, dict]:
     }
 
 
+class AccountPolicyError(Exception):
+    """Cambio de cuenta que las reglas del sistema no permiten; el mensaje se muestra tal cual al administrador."""
+
+
+LAST_ADMIN_MESSAGE = ("Debe quedar al menos un administrador activo. Crea o activa otro administrador antes de "
+                      "desactivar esta cuenta o quitarle el rol.")
+SELF_CHANGE_MESSAGE = ("No puedes desactivar tu propia cuenta ni quitarte el rol de administrador. "
+                       "Pide a otro administrador que lo haga.")
+
+
+def leaves_without_administrator(user: User, *, role: str | None = None, is_active: bool | None = None,
+                                 lock: bool = False) -> bool:
+    """True si cambiar el rol o el estado de `user` dejaría el sistema sin ningún administrador activo.
+
+    Se consulta la base de datos, no la instancia (que puede estar desactualizada). Con `lock`, las filas de los
+    administradores activos quedan bloqueadas hasta el fin de la transacción: dos administradores que se quitan el
+    rol a la vez no pueden dejar el sistema vacío (en PostgreSQL; SQLite ya serializa las escrituras).
+    """
+    admins = User.objects.filter(role=User.Role.ADMINISTRATOR, is_active=True)
+    if lock:
+        admins = admins.select_for_update()
+    admin_ids = set(admins.values_list("pk", flat=True))
+    if user.pk not in admin_ids:
+        return False
+    stays_admin = (is_active is None or is_active) and (role is None or role == User.Role.ADMINISTRATOR)
+    return not stays_admin and admin_ids == {user.pk}
+
+
 @transaction.atomic
-def update_user(user: User, *, role: str | None = None, is_active: bool | None = None, actor: User | None = None, ip_address: str | None = None) -> User:
-    """Actualiza el rol o estado de una cuenta y deja evidencia de la acción."""
-    changed: list[str] = []
-    if role is not None:
-        if role not in User.Role.values:
-            raise ValueError("Rol de usuario no válido.")
-        user.role = role
-        changed.append("role")
-    if is_active is not None:
-        user.is_active = is_active
-        changed.append("is_active")
+def update_user(user: User, *, role: str | None = None, is_active: bool | None = None, username: str | None = None,
+                first_name: str | None = None, last_name: str | None = None, email: str | None = None,
+                actor: User | None = None, ip_address: str | None = None) -> User:
+    """Actualiza datos, rol o estado de una cuenta y deja evidencia de la acción.
+
+    Reglas: siempre queda al menos un administrador activo, y un administrador no puede desactivarse ni quitarse el
+    rol a sí mismo (evita quedarse fuera por error). Solo se guardan y registran los campos que cambian de valor.
+    """
+    if role is not None and role not in User.Role.values:
+        raise ValueError("Rol de usuario no válido.")
+    removes_admin = (is_active is False) or (role is not None and role != User.Role.ADMINISTRATOR)
+    if removes_admin and actor is not None and actor.pk == user.pk and user.role == User.Role.ADMINISTRATOR:
+        raise AccountPolicyError(SELF_CHANGE_MESSAGE)
+    if removes_admin and leaves_without_administrator(user, role=role, is_active=is_active, lock=True):
+        raise AccountPolicyError(LAST_ADMIN_MESSAGE)
+    requested = {"username": username, "first_name": first_name, "last_name": last_name, "email": email,
+                 "role": role, "is_active": is_active}
+    previous_role = user.role
+    changed = [field for field, value in requested.items() if value is not None and getattr(user, field) != value]
+    for field in changed:
+        setattr(user, field, requested[field])
     if changed:
         user.save(update_fields=changed)
-        record_event("user.updated", actor, {"user_id": user.pk, "fields": changed}, ip_address)
+        details = {"user_id": user.pk, "fields": changed}
+        if "role" in changed:
+            details["role"] = {"from": previous_role, "to": user.role}
+        if "is_active" in changed:
+            details["is_active"] = user.is_active
+        record_event("user.updated", actor, details, ip_address)
     return user

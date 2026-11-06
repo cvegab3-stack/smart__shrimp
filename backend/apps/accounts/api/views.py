@@ -6,7 +6,8 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.permissions import AdministratorOnly
-from apps.accounts.services import create_user, password_changes, set_user_password, update_user
+from apps.accounts.services import (AccountPolicyError, create_user, password_changes, set_user_password,
+                                    update_user)
 
 from .serializers import PasswordSetSerializer, UserCreateSerializer, UserSerializer, UserUpdateSerializer
 
@@ -28,7 +29,7 @@ class UserListCreateView(APIView):
 
 
 class UserDetailView(APIView):
-    """Consulta o modifica rol y estado; reservado al administrador."""
+    """Consulta o edita una cuenta (datos, rol y estado); reservado al administrador."""
 
     permission_classes = (AdministratorOnly,)
 
@@ -39,10 +40,15 @@ class UserDetailView(APIView):
         return Response(UserSerializer(self.get_object(pk)).data)
 
     def patch(self, request, pk):
-        serializer = UserUpdateSerializer(data=request.data)
+        user = self.get_object(pk)
+        serializer = UserUpdateSerializer(data=request.data, context={"user": user})
         serializer.is_valid(raise_exception=True)
-        user = update_user(self.get_object(pk), **serializer.validated_data, actor=request.user, ip_address=request.META.get("REMOTE_ADDR"))
-        return Response(UserSerializer(user).data)
+        try:
+            user = update_user(user, **serializer.validated_data, actor=request.user,
+                               ip_address=request.META.get("REMOTE_ADDR"))
+        except AccountPolicyError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(UserSerializer(user, context={"password_changes": password_changes()}).data)
 
 
 class UserPasswordView(APIView):

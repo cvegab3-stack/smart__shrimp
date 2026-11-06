@@ -8,7 +8,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AuditEvent, User
-from apps.accounts.services import authenticate_user, create_user
+from apps.accounts.services import (AccountPolicyError, authenticate_user, create_user, leaves_without_administrator,
+                                    update_user)
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
@@ -328,3 +329,146 @@ class UsernameCaseTests(TestCase):
         self.assertEqual(authenticate_user("Inspector", self.PASSWORD)[0], self.user)
         self.assertEqual(authenticate_user("inspector", "Twin-Strong-Password-27!")[0], twin)
         self.assertEqual(authenticate_user("INSPECTOR", self.PASSWORD), (None, "invalid_credentials"))
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class UserEditTests(TestCase):
+    """El administrador edita datos, usuario y rol de una cuenta; solo se registran los campos que cambian."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("admin", password="Admin-Strong-Password-71!", role=User.Role.ADMINISTRATOR)
+        self.user = User.objects.create_user("operario", password="Operario-Strong-Password-33!", role=User.Role.OPERATOR)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def patch(self, user, **data):
+        return self.client.patch(f"/api/accounts/users/{user.pk}/", data, format="json")
+
+    def test_admin_edits_personal_data_role_and_username(self):
+        response = self.patch(self.user, username="operario2", first_name="Ana", last_name="Pérez",
+                              email="ana@example.com", role=User.Role.QUALITY)
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual((self.user.username, self.user.first_name, self.user.last_name, self.user.email, self.user.role),
+                         ("operario2", "Ana", "Pérez", "ana@example.com", User.Role.QUALITY))
+        event = AuditEvent.objects.get(action="user.updated")
+        self.assertEqual(event.actor_id, self.admin.pk)
+        self.assertEqual(set(event.details["fields"]), {"username", "first_name", "last_name", "email", "role"})
+        self.assertEqual(event.details["role"], {"from": User.Role.OPERATOR, "to": User.Role.QUALITY})
+
+    def test_unchanged_values_are_not_saved_or_audited(self):
+        self.assertEqual(self.patch(self.user, username="operario", role=User.Role.OPERATOR).status_code, 200)
+        self.assertFalse(AuditEvent.objects.filter(action="user.updated").exists())
+
+    def test_username_cannot_collide_with_another_account_ignoring_case(self):
+        response = self.patch(self.user, username="ADMIN")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("username", response.json())
+        self.assertEqual(self.patch(self.user, username="Operario").status_code, 200)  # la propia cuenta sí
+
+    def test_invalid_username_and_email_are_rejected(self):
+        self.assertIn("username", self.patch(self.user, username="con espacios").json())
+        self.assertIn("email", self.patch(self.user, email="no-es-correo").json())
+        self.assertIn("username", self.patch(self.user, username="").json())
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class LastAdministratorTests(TestCase):
+    """Siempre queda al menos un administrador activo y nadie se quita a sí mismo el acceso de administrador."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("admin", password="Admin-Strong-Password-71!", role=User.Role.ADMINISTRATOR)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def patch(self, user, **data):
+        return self.client.patch(f"/api/accounts/users/{user.pk}/", data, format="json")
+
+    def test_only_admin_cannot_be_deactivated_or_demoted(self):
+        for change in ({"is_active": False}, {"role": User.Role.SUPERVISOR}):
+            with self.assertRaises(AccountPolicyError):
+                update_user(self.admin, **change)
+        self.admin.refresh_from_db()
+        self.assertEqual((self.admin.is_active, self.admin.role), (True, User.Role.ADMINISTRATOR))
+
+    def test_admin_cannot_deactivate_or_demote_self_even_with_other_admins(self):
+        User.objects.create_user("admin2", password="Admin-Strong-Password-72!", role=User.Role.ADMINISTRATOR)
+        for change in ({"is_active": False}, {"role": User.Role.OPERATOR}):
+            response = self.patch(self.admin, **change)
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("propia cuenta", response.json()["detail"])
+        self.admin.refresh_from_db()
+        self.assertEqual((self.admin.is_active, self.admin.role), (True, User.Role.ADMINISTRATOR))
+        self.assertEqual(self.patch(self.admin, first_name="Admin").status_code, 200)  # sus datos sí
+
+    def test_another_admin_can_be_demoted_while_one_remains(self):
+        other = User.objects.create_user("admin2", password="Admin-Strong-Password-72!", role=User.Role.ADMINISTRATOR)
+        self.assertEqual(self.patch(other, role=User.Role.SUPERVISOR).status_code, 200)
+        self.assertEqual(self.patch(other, role=User.Role.ADMINISTRATOR).status_code, 200)
+        self.assertEqual(self.patch(other, is_active=False).status_code, 200)
+
+    def test_inactive_admins_do_not_count(self):
+        User.objects.create_user("dormido", password="x", role=User.Role.ADMINISTRATOR, is_active=False)
+        self.assertTrue(leaves_without_administrator(self.admin, is_active=False))
+
+    def test_django_admin_form_and_delete_respect_the_rule(self):
+        from django.contrib.admin.sites import site
+
+        from apps.accounts.admin import ProtectedUserChangeForm
+        data = {"username": "admin", "password": self.admin.password, "role": User.Role.OPERATOR, "is_active": True,
+                "date_joined": "2026-01-01 00:00:00", "failed_login_attempts": 0}
+        form = ProtectedUserChangeForm(data, instance=self.admin)
+        self.assertFalse(form.is_valid())
+        self.assertIn("al menos un administrador activo", " ".join(form.non_field_errors()))
+        request = type("Request", (), {"user": self.admin})()
+        self.assertFalse(site._registry[User].has_delete_permission(request, self.admin))
+
+
+class SessionExpiryTests(TestCase):
+    """Sin sesión la API responde 401 (no 403); la página avisa antes de vencer y el acceso explica el cierre."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("operario", password="x", role=User.Role.OPERATOR)
+
+    def test_api_without_session_returns_401_session_expired(self):
+        response = APIClient().get("/api/accounts/users/")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["code"], "session_expired")
+
+    def test_authenticated_without_permission_still_gets_403(self):
+        client = APIClient()
+        client.force_authenticate(self.user)
+        self.assertEqual(client.get("/api/accounts/users/").status_code, 403)
+
+    def test_keepalive_renews_session_or_reports_expiry(self):
+        self.assertEqual(Client().post("/accounts/session/keepalive/").status_code, 401)
+        client = Client()
+        client.force_login(self.user)
+        response = client.post("/accounts/session/keepalive/")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(response.json()["expires_in"], 0)
+        self.assertEqual(client.get("/accounts/session/keepalive/").status_code, 405)
+
+    @override_settings(SESSION_COOKIE_AGE=600, SESSION_WARNING_SECONDS=60)
+    def test_pages_carry_session_timing_and_login_explains_expiry(self):
+        client = Client()
+        client.force_login(self.user)
+        page = client.get("/").content.decode()
+        self.assertIn('data-session-idle="600"', page)
+        self.assertIn('data-session-warning="60"', page)
+        self.assertIn("session_timeout.js", page)
+        self.assertNotIn("session_timeout.js", Client().get("/accounts/login/").content.decode())
+        self.assertContains(Client().get("/accounts/login/?expired=1"), "Tu sesión se cerró por inactividad")
+        self.assertNotContains(Client().get("/accounts/login/"), "Tu sesión se cerró por inactividad")
+
+
+class PasswordRulesDisplayTests(TestCase):
+    """Los formularios de contraseña nueva muestran la longitud mínima configurada."""
+
+    @override_settings(PASSWORD_MIN_LENGTH=12)
+    def test_forms_use_configured_minimum(self):
+        admin = User.objects.create_user("admin", password="x", role=User.Role.ADMINISTRATOR)
+        client = Client()
+        client.force_login(admin)
+        self.assertContains(client.get("/users/"), 'data-password-rules="12"')
+        self.assertContains(client.get("/accounts/profile/"), "al menos 12 caracteres")

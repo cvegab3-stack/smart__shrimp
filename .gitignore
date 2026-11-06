@@ -26,3 +26,8 @@ runs/
 *.cache
 # Excepción: el modelo que usa la aplicación viaja con el código
 !models/detector/best.pt
+
+# Despliegue con Docker: secretos y certificados locales
+.env.docker
+infra/nginx/certs/
+backend/staticfiles/

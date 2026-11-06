@@ -4,9 +4,11 @@ from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
+from .api.exceptions import SESSION_EXPIRED_MESSAGE
 from .models import User
 from .services import authenticate_user, change_own_password, record_event
 
@@ -31,7 +33,9 @@ def login_view(request):
             "account_locked": "La cuenta está bloqueada temporalmente.",
             "account_inactive": "La cuenta está inactiva. Comunícate con el administrador.",
         }.get(error, "Usuario, contraseña o perfil incorrectos.")
-    return render(request, "accounts/login.html", {"error_message": message})
+    # ?expired=1 lo añade session_timeout.js al vencer la sesión por inactividad.
+    return render(request, "accounts/login.html", {"error_message": message,
+                                                   "session_expired": request.GET.get("expired") == "1"})
 
 
 @login_required
@@ -54,3 +58,11 @@ def logout_view(request):
     record_event("logout.succeeded", request.user, ip_address=request.META.get("REMOTE_ADDR"))
     logout(request)
     return redirect("login")
+
+
+@require_POST
+def session_keepalive_view(request):
+    """"Seguir conectado": la petición en sí renueva la sesión (SESSION_SAVE_EVERY_REQUEST). Sin sesión, 401."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": SESSION_EXPIRED_MESSAGE, "code": "session_expired"}, status=401)
+    return JsonResponse({"expires_in": request.session.get_expiry_age()})

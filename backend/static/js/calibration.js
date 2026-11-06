@@ -1,15 +1,8 @@
 "use strict";
 (() => {
   const calibrationForm = document.querySelector("#calibration-form"); const thresholdForm = document.querySelector("#threshold-form"); if (!calibrationForm && !thresholdForm) return;
-  const csrf = () => document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("csrftoken="))?.split("=").slice(1).join("=");
   const CATEGORIES = [["pequeno", "Pequeño"], ["mediano", "Mediano"], ["grande", "Grande"]];
-
-  // Convierte la respuesta de error de DRF ({campo: [mensajes]} o {detail}) en texto legible.
-  function describeError(data, status) { if (typeof data?.detail === "string") return data.detail;
-    const parts = Object.values(data || {}).flatMap((value) => [].concat(value)).filter((text) => typeof text === "string");
-    return parts.length ? parts.join(" ") : `El servidor no pudo guardar los datos (HTTP ${status}).`; }
-  async function post(url, payload) { const response = await fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() || "" }, body: JSON.stringify(payload) });
-    const data = await response.json().catch(() => null); if (!response.ok) throw new Error(describeError(data, response.status)); return data; }
+  const post = (url, body) => window.SmartShrimp.request(url, { method: "POST", body });
   function show(element, text, ok) { element.textContent = text; element.className = `alert ${ok ? "alert-success" : "alert-error"}`; }
 
   // Medidas y confianzas nunca son negativas: no se puede escribir "-", "+" ni notación científica ("e"),
