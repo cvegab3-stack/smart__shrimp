@@ -8,13 +8,19 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.accounts.services import record_event
+from apps.analysis.errors import INPUT, get_error
 from apps.analysis.models import AnalysisSession, ProcessingAttempt
+from apps.analysis.services.session_service import expire_stale_analyses
 from apps.results.models import ProductionReport, ShrimpRecord
 from integrations import vision_client
 from integrations.vision_client import VisionServiceError
 from shrimp_contracts.catalog import classes_for
 
 VISUAL_DISCLAIMER = "La condición visual es solo evaluación visual y no reemplaza análisis microbiológicos, químicos ni sanitarios."
+
+
+class NothingToFinish(ValueError):
+    """Se pidió finalizar un intento sin ningún fotograma procesado: no cambia el estado del análisis."""
 
 
 def _validate_summary(analysis: AnalysisSession, attempt: int, summary: dict) -> list[dict]:
@@ -65,21 +71,30 @@ def complete_analysis(analysis_id, *, operator: User, ip_address: str | None = N
     if analysis.status != AnalysisSession.Status.IN_PROGRESS:
         raise ValueError("Solo se pueden finalizar análisis en curso.")
     attempt_number = analysis.current_attempt
+    attempt_row = ProcessingAttempt.objects.filter(analysis=analysis, attempt_number=attempt_number).first()
+    if attempt_row is None or not attempt_row.frames_processed:
+        message = ("Analiza la imagen antes de finalizar." if analysis.source == AnalysisSession.Source.IMAGE
+                   else "Aún no se procesó ningún fotograma: inicia la cámara y espera a que se analice antes de finalizar.")
+        raise NothingToFinish(message)
     try:
         summary = vision_client.get_session_summary(str(analysis.pk), attempt_number)
         rows = _validate_summary(analysis, attempt_number, summary)
     except (VisionServiceError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        code = getattr(exc, "code", "vision_invalid_response")
+        if get_error(code).kind == INPUT:  # un resumen nunca es culpa de la imagen: es una respuesta no válida
+            code = "vision_invalid_response"
         with transaction.atomic():
             locked = AnalysisSession.objects.select_for_update().get(pk=analysis.pk)
             locked.status = AnalysisSession.Status.ERROR
-            locked.error_code = "vision_summary_error"
-            locked.error_message = str(exc)
+            locked.error_code = code
+            locked.error_message = get_error(code).record_text
             locked.finished_at = timezone.now()
             locked.save(update_fields=("status", "error_code", "error_message", "finished_at"))
             ProcessingAttempt.objects.filter(analysis=locked, attempt_number=attempt_number).update(
                 status=AnalysisSession.Status.ERROR, error_code=locked.error_code, finished_at=locked.finished_at,
             )
-            record_event("analysis.finalization_failed", operator, {"analysis_id": str(analysis.pk)}, ip_address)
+            record_event("analysis.finalization_failed", operator, {
+                "analysis_id": str(analysis.pk), "reason": code, "detail": str(exc)[:300]}, ip_address)
         raise
     with transaction.atomic():
         locked = AnalysisSession.objects.select_for_update().get(pk=analysis.pk)
@@ -114,7 +129,8 @@ def complete_analysis(analysis_id, *, operator: User, ip_address: str | None = N
 def create_production_report(*, date_from: date, date_to: date, supervisor: User, ip_address: str | None = None) -> ProductionReport:
     """Agrega análisis finalizados del intervalo y conserva el informe generado."""
     if date_from > date_to:
-        raise ValueError("La fecha inicial debe ser anterior o igual a la final.")
+        raise ValueError("La fecha «Desde» debe ser anterior o igual a «Hasta».")
+    expire_stale_analyses()
     records = ShrimpRecord.objects.filter(
         analysis__status=AnalysisSession.Status.FINISHED,
         analysis__created_at__date__gte=date_from,
@@ -132,9 +148,38 @@ def create_production_report(*, date_from: date, date_to: date, supervisor: User
         "average_estimated_weight_g": sum(weights) / len(weights) if weights else None,
         "weight_label": "valor estimado",
         "visual_disclaimer": VISUAL_DISCLAIMER,
+        "flow": _flow_health(date_from, date_to),
     }
     report = ProductionReport.objects.create(
         created_by_id=supervisor.pk, date_from=date_from, date_to=date_to, summary=summary,
     )
     record_event("report.created", supervisor, {"report_id": str(report.pk)}, ip_address)
     return report
+
+
+def flow_rows(summary: dict) -> list[tuple[str, int]]:
+    """Filas «salud del flujo» para los exportadores (vacío en informes generados antes de existir la métrica)."""
+    flow = summary.get("flow")
+    if not flow:
+        return []
+    rows = [("Análisis iniciados", flow["started"]), ("Análisis con error", flow["errors"]),
+            ("De ellos, interrumpidos", flow["interrupted"]), ("Análisis reintentados", flow["retried"])]
+    rows.extend((f"Causa de error: {cause}", count) for cause, count in flow["error_causes"].items())
+    return rows
+
+
+def _flow_health(date_from: date, date_to: date) -> dict:
+    """Salud del flujo en el período: cuántos análisis se iniciaron, cuántos fallaron y por qué, y cuántos se
+    reintentaron. Así el supervisor ve la calidad del proceso, no solo la producción."""
+    sessions = AnalysisSession.objects.filter(created_at__date__gte=date_from, created_at__date__lte=date_to)
+    errors = sessions.filter(status=AnalysisSession.Status.ERROR)
+    causes = Counter(get_error(code).record_text for code in errors.values_list("error_code", flat=True))
+    return {
+        "started": sessions.count(),
+        "finished": sessions.filter(status=AnalysisSession.Status.FINISHED).count(),
+        "errors": errors.count(),
+        "interrupted": errors.filter(error_code="interrupted").count(),
+        "in_progress": sessions.filter(status=AnalysisSession.Status.IN_PROGRESS).count(),
+        "retried": sessions.filter(current_attempt__gt=1).count(),
+        "error_causes": dict(causes.most_common()),
+    }

@@ -11,17 +11,22 @@ from apps.analysis.api.serializers import (
     AnalysisCreateSerializer, CalibrationCreateSerializer, CalibrationSerializer,
     FrameInputSerializer, ThresholdCreateSerializer, ThresholdSerializer,
 )
+from apps.analysis.errors import INPUT, describe, get_error
 from apps.analysis.models import AnalysisSession, Calibration, ThresholdProfile
 from apps.analysis.services.calibration_service import activate_calibration, create_calibration
-from apps.analysis.services.frame_relay_service import relay_frame
+from apps.analysis.services.frame_relay_service import AnalysisNotInProgress, relay_frame
+from apps.analysis.services.image_validation import InvalidImage, validate_image_base64
 from apps.analysis.services.snapshot_service import save_snapshot
-from apps.analysis.services.session_service import retry_analysis, start_analysis
+from apps.analysis.services.session_service import expire_stale_analyses, retry_analysis, start_analysis
 from apps.analysis.services.threshold_service import create_threshold_profile
-from apps.results.services.report_service import complete_analysis
+from apps.results.services.presentation_service import build_summary
+from apps.results.services.report_service import NothingToFinish, complete_analysis
+from integrations import vision_client
 from integrations.vision_client import VisionServiceError
 
 
-def _analysis_data(analysis: AnalysisSession) -> dict:
+def analysis_payload(analysis: AnalysisSession) -> dict:
+    """Estado del análisis tal como lo necesita la pantalla: incluye la clase del error y qué decirle al operador."""
     return {
         "id": str(analysis.pk), "batch_code": analysis.batch_code, "source": analysis.source,
         "status": analysis.status, "attempt": analysis.current_attempt,
@@ -29,8 +34,33 @@ def _analysis_data(analysis: AnalysisSession) -> dict:
         "model_mode": analysis.model_mode, "model_status": analysis.model_status,
         "shrimp_count": analysis.shrimp_count, "rejected_count": analysis.rejected_count,
         "error_code": analysis.error_code, "error_message": analysis.error_message,
-        "created_at": analysis.created_at,
+        "created_at": analysis.created_at, **describe(analysis.error_code),
     }
+
+
+def _input_error(message: str, code: str = "invalid_image") -> Response:
+    """Error de entrada: el análisis no cambia; se corrige el dato y se reenvía."""
+    return Response({"detail": message, "error_code": code, "error_kind": INPUT, "retryable": False},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+
+def _state_response(analysis: AnalysisSession, http_status: int, detail: str | None = None) -> Response:
+    """Respuesta de fallo con el estado real del análisis, para que la pantalla ofrezca la acción correcta."""
+    analysis.refresh_from_db()
+    data = analysis_payload(analysis)
+    if detail is None:
+        detail = data["operator_message"] or "El análisis no se pudo completar."
+    return Response({**data, "detail": detail}, status=http_status)
+
+
+def _not_in_progress_detail(analysis: AnalysisSession, attempt: int | None = None) -> str:
+    if analysis.status == AnalysisSession.Status.FINISHED:
+        return "Este análisis ya está finalizado. Empieza un análisis nuevo para otro lote."
+    if analysis.status == AnalysisSession.Status.ERROR:
+        return get_error(analysis.error_code).operator_text
+    if attempt is not None and attempt != analysis.current_attempt:
+        return "Este análisis se reintentó en otra pestaña o ventana. Continúa allí o recarga esta página."
+    return "Este análisis ya no admite cambios."
 
 
 class AnalysisListCreateView(APIView):
@@ -41,8 +71,9 @@ class AnalysisListCreateView(APIView):
         return super().get_permissions()
 
     def get(self, request):
+        expire_stale_analyses()
         sessions = AnalysisSession.objects.select_related("calibration").visible_to(request.user)
-        return Response([_analysis_data(item) for item in sessions.order_by("-created_at")])
+        return Response([analysis_payload(item) for item in sessions.order_by("-created_at")])
 
     def post(self, request):
         serializer = AnalysisCreateSerializer(data=request.data)
@@ -50,9 +81,10 @@ class AnalysisListCreateView(APIView):
         try:
             analysis = start_analysis(**serializer.validated_data, operator=request.user, ip_address=request.META.get("REMOTE_ADDR"))
         except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
-        code = status.HTTP_201_CREATED if analysis.status == AnalysisSession.Status.IN_PROGRESS else status.HTTP_503_SERVICE_UNAVAILABLE
-        return Response(_analysis_data(analysis), status=code)
+            raise ValidationError({"detail": str(exc)}) from exc
+        if analysis.status != AnalysisSession.Status.IN_PROGRESS:
+            return _state_response(analysis, status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(analysis_payload(analysis), status=status.HTTP_201_CREATED)
 
 
 class AnalysisDetailView(APIView):
@@ -70,32 +102,41 @@ class AnalysisDetailView(APIView):
             raise NotFound("Análisis no encontrado.") from exc
 
     def get(self, request, pk):
-        return Response(_analysis_data(self.get_object(request, pk)))
+        expire_stale_analyses()
+        return Response(analysis_payload(self.get_object(request, pk)))
 
     def post(self, request, pk):
         try:
             analysis = retry_analysis(pk, operator=request.user, ip_address=request.META.get("REMOTE_ADDR"))
-        except (AnalysisSession.DoesNotExist, ValueError) as exc:
-            raise ValidationError(str(exc)) from exc
-        code = status.HTTP_202_ACCEPTED if analysis.status == AnalysisSession.Status.IN_PROGRESS else status.HTTP_503_SERVICE_UNAVAILABLE
-        return Response(_analysis_data(analysis), status=code)
+        except AnalysisSession.DoesNotExist as exc:
+            raise NotFound("Análisis no encontrado.") from exc
+        except ValueError as exc:
+            return _state_response(AnalysisSession.objects.get(pk=pk), status.HTTP_409_CONFLICT, str(exc))
+        if analysis.status != AnalysisSession.Status.IN_PROGRESS:
+            return _state_response(analysis, status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(analysis_payload(analysis), status=status.HTTP_202_ACCEPTED)
 
 
 class AnalysisCompleteView(APIView):
-    """Finaliza por completo y persiste resultados atómicamente."""
+    """Finaliza por completo y persiste resultados atómicamente; responde ya con el resumen para mostrarlo."""
 
     permission_classes = (OperatorOnly,)
 
     def post(self, request, pk):
         try:
-            analysis = complete_analysis(pk, operator=request.user, ip_address=request.META.get("REMOTE_ADDR"))
+            analysis = AnalysisSession.objects.select_related("calibration").get(pk=pk, operator=request.user)
         except AnalysisSession.DoesNotExist as exc:
             raise NotFound("Análisis no encontrado.") from exc
-        except VisionServiceError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
-        return Response(_analysis_data(analysis))
+        if analysis.status == AnalysisSession.Status.ERROR:
+            return _state_response(analysis, status.HTTP_409_CONFLICT, _not_in_progress_detail(analysis))
+        try:
+            analysis = complete_analysis(pk, operator=request.user, ip_address=request.META.get("REMOTE_ADDR"))
+        except NothingToFinish as exc:
+            return _input_error(str(exc), code="nothing_to_finish")
+        except (VisionServiceError, ValueError):
+            # complete_analysis ya dejó el intento con error y su causa: se devuelve ese estado.
+            return _state_response(analysis, status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({**analysis_payload(analysis), "summary": build_summary(analysis)})
 
 
 class FrameRelayView(APIView):
@@ -108,6 +149,10 @@ class FrameRelayView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
+            validate_image_base64(data["image_base64"])
+        except InvalidImage as exc:
+            return _input_error(str(exc))
+        try:
             result = relay_frame(
                 analysis_id=pk, operator=request.user,
                 ip_address=request.META.get("REMOTE_ADDR"),
@@ -116,13 +161,25 @@ class FrameRelayView(APIView):
             )
         except AnalysisSession.DoesNotExist as exc:
             raise NotFound("Análisis no encontrado.") from exc
-        except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
+        except AnalysisNotInProgress:
+            analysis = AnalysisSession.objects.get(pk=pk)
+            return _state_response(analysis, status.HTTP_409_CONFLICT, _not_in_progress_detail(analysis, data["attempt"]))
         except VisionServiceError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            if get_error(exc.code).kind == INPUT:
+                return _input_error(get_error(exc.code).operator_text)
+            return _state_response(AnalysisSession.objects.get(pk=pk), status.HTTP_503_SERVICE_UNAVAILABLE)
         analysis = AnalysisSession.objects.get(pk=pk)
         save_snapshot(analysis, data["attempt"], data["image_base64"], result.get("detections") or [])
         return Response(result)
+
+
+class VisionHealthView(APIView):
+    """Indica al administrador si el servicio de análisis responde."""
+
+    permission_classes = (AdministratorOnly,)
+
+    def get(self, request):
+        return Response({"available": vision_client.health()})
 
 
 class CalibrationView(APIView):

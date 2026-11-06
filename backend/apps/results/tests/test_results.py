@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.analysis.models import AnalysisSession
+from apps.analysis.models import AnalysisSession, ProcessingAttempt
 from apps.analysis.services.calibration_service import create_calibration
 from apps.analysis.services.session_service import start_analysis
 from apps.analysis.services.threshold_service import create_threshold_profile
@@ -45,6 +45,8 @@ class ResultServiceTests(TestCase):
         create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
         with patch("apps.analysis.services.session_service.vision_client.start_session", return_value={"ok": True}):
             self.analysis = start_analysis(batch_code="LOT-2026-01", source="imagen", operator=self.operator)
+        # La imagen ya se analizó: solo se finaliza un intento con al menos un fotograma procesado.
+        self.analysis.attempts.update(frames_processed=1)
 
     @patch("apps.results.services.report_service.vision_client.get_session_summary")
     def test_complete_analysis_saves_all_results_and_is_idempotent(self, get_summary):
@@ -171,11 +173,16 @@ class AnalysisSnapshotAndSummaryTests(TestCase):
             if expected == 200:
                 self.assertEqual(b"".join(response.streaming_content), FAKE_JPEG)  # es la imagen enviada, no una fija
 
-    def test_non_image_data_is_not_saved_but_analysis_continues(self):
+    def test_non_image_data_is_rejected_without_spending_the_attempt(self):
         analysis = self.start()
         response = self.send_frame(analysis, [], image_b64=base64.b64encode(b"<script>no soy una imagen</script>").decode())
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(analysis.attempts.get(attempt_number=1).snapshot_path, "")
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.data["error_kind"], "entrada")
+        self.assertIn("no es una imagen", response.data["detail"])
+        analysis.refresh_from_db()
+        self.assertEqual(analysis.status, AnalysisSession.Status.IN_PROGRESS)  # se elige otra foto, sin reintentar
+        attempt = ProcessingAttempt.objects.get(analysis=analysis, attempt_number=1)
+        self.assertEqual((attempt.snapshot_path, attempt.frames_processed), ("", 0))
 
     def test_video_keeps_last_frame_with_shrimp_at_most_once_per_second(self):
         analysis = self.start("video")

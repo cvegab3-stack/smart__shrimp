@@ -206,6 +206,9 @@ class AnalysisSession(models.Model):
     rejected_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    # Última petición del operador sobre este análisis (crear, fotograma, reintento). Si un análisis en curso pasa
+    # ANALYSIS_IDLE_MINUTES sin actividad, se considera interrumpido (session_service.expire_stale_analyses).
+    last_activity_at = models.DateTimeField(null=True, blank=True)
 
     objects = AnalysisSessionQuerySet.as_manager()
 
@@ -224,6 +227,8 @@ class ProcessingAttempt(models.Model):
     # Imagen: la foto adjuntada. Video: el último fotograma con camarones (guardado como máximo 1 vez por segundo).
     snapshot_path = models.CharField(max_length=255, blank=True)
     snapshot_detections = models.JSONField(default=list, blank=True)
+    # Fotogramas que el servicio procesó en este intento: no se finaliza un intento sin al menos uno.
+    frames_processed = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("analysis", "attempt_number"), name="unique_analysis_attempt")]

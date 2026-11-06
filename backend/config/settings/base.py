@@ -77,4 +77,13 @@ LOGIN_URL = "/accounts/login/"
 VISION_SERVICE_URL = os.getenv("VISION_SERVICE_URL", "http://vision:8001")
 VISION_SERVICE_TOKEN_SECRET = os.getenv("VISION_SERVICE_TOKEN_SECRET", "")
 VISION_TIMEOUT_SECONDS = float(os.getenv("VISION_TIMEOUT_SECONDS", "5"))
+# Una imagen suelta (y el resumen final) puede tardar más que un fotograma de video, sobre todo en CPU.
+VISION_IMAGE_TIMEOUT_SECONDS = float(os.getenv("VISION_IMAGE_TIMEOUT_SECONDS", "15"))
 VISION_MAX_RETRIES = int(os.getenv("VISION_MAX_RETRIES", "1"))
+# Flujo de análisis. Imagen enviada: como máximo ANALYSIS_MAX_IMAGE_MB ya convertida a JPEG (en base64 ocupa ~4/3)
+# y al menos ANALYSIS_MIN_IMAGE_SIDE px por lado. El cuerpo admitido coincide con client_max_body_size de nginx.
+ANALYSIS_MAX_IMAGE_MB = float(os.getenv("ANALYSIS_MAX_IMAGE_MB", "12"))
+ANALYSIS_MIN_IMAGE_SIDE = int(os.getenv("ANALYSIS_MIN_IMAGE_SIDE", "240"))
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
+# Un análisis en curso sin actividad durante estos minutos se considera interrumpido y se puede reintentar.
+ANALYSIS_IDLE_MINUTES = int(os.getenv("ANALYSIS_IDLE_MINUTES", "15"))
