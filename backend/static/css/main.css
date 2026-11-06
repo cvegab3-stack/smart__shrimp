@@ -234,3 +234,17 @@ button,input,select,textarea{font:inherit} button,a{touch-action:manipulation} b
 /* Captura de imagen en una columna: recuadro, vista previa y botón (antes el botón se estiraba en la 2.ª columna). */
 .flow-card #image-controls{grid-template-columns:minmax(0,1fr)}
 #image-controls .capture-preview{max-height:320px;width:100%;object-fit:contain;border-radius:14px;background:#f5fbfc}
+/* Usuarios y roles, ajuste a la maqueta: todo el ancho, formulario compacto y textos más grandes. */
+.users-page{max-width:1500px}
+.create-user-card{padding:14px 16px 18px}
+.create-user-wave{width:32%;max-width:460px;height:80px}
+.create-user-head{gap:16px;padding-bottom:10px;margin-bottom:12px}.create-user-head h2{font-size:28px;margin-bottom:2px}.create-user-head p{font-size:16px}
+.create-user-icon{width:58px;height:58px}
+.password-requirements{padding:10px 18px;margin-bottom:10px}.password-requirements strong{font-size:15px}
+.password-rules-inline{font-size:14px;gap:2px 44px}.password-rules-inline li{padding-left:16px}.password-rules-inline li::before{width:8px;height:8px}
+.create-user-form{gap:8px 38px;padding:0 10px}.create-user-form .field{gap:4px}.create-user-form .field label{font-size:15px}
+.create-user-form .field .input-icon input,.create-user-form .field .input-icon select{min-height:36px;padding-top:6px;padding-bottom:6px}
+.create-user-form .input-glyph{width:28px;height:28px;left:5px;border-radius:8px}.create-user-form .input-glyph svg{width:17px;height:17px}
+.create-user-form .password-toggle{width:34px;height:34px}
+.btn-create-user{min-height:40px;margin-top:8px;padding-top:6px;padding-bottom:6px;font-size:17px}
+.create-user-form .input-icon select{appearance:none;-webkit-appearance:none;padding-right:44px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f2a43' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center/20px 20px}
