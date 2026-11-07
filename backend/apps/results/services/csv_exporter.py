@@ -4,7 +4,7 @@ import csv
 import io
 
 from apps.results.models import ShrimpRecord
-from apps.results.services.report_service import VISUAL_DISCLAIMER
+from apps.results.services.report_service import VISUAL_DISCLAIMER, flow_rows
 
 
 def export_report_csv(report) -> bytes:
@@ -20,6 +20,8 @@ def export_report_csv(report) -> bytes:
         writer.writerow((f"Tamaño: {category}", count))
     for category, count in sorted(values["visual_condition_distribution"].items()):
         writer.writerow((f"Condición visual: {category}", count))
+    for label, count in flow_rows(values):
+        writer.writerow((label, count))
     writer.writerow(("Condición visual", values["visual_disclaimer"]))
     return output.getvalue().encode("utf-8-sig")
 

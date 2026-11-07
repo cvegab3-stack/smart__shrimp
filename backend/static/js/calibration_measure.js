@@ -55,15 +55,18 @@
       stream = await navigator.mediaDevices.getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId } } : true, audio: false });
       video.srcObject = stream; video.hidden = false; captureButton.hidden = false; await video.play(); await listCameras();
       say("Encuadra la regla como en los análisis y pulsa «Tomar foto»."); }
-    catch { say("No se pudo abrir la cámara (permiso denegado o en uso por otra aplicación). Puedes subir una foto."); } });
+    catch (error) { stopCamera(); say(`${window.SmartShrimp.cameraErrorText(error)} También puedes subir una foto.`); } });
 
   captureButton.addEventListener("click", () => { if (!video.videoWidth) return;
     const frame = document.createElement("canvas"); frame.width = video.videoWidth; frame.height = video.videoHeight;
     frame.getContext("2d").drawImage(video, 0, 0); stopCamera(); showImage(frame, frame.width, frame.height, "Foto de la cámara"); });
 
+  // La foto de la regla pasa la misma validación que las imágenes de análisis: si no sirve para analizar, tampoco
+  // sirve para calibrar (sus píxeles por cm no corresponderían a los análisis).
+  const minSide = Number(panel.dataset.minImageSide) || 0;
   $("#measure-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; stopCamera();
-    try { const bitmap = await createImageBitmap(file); showImage(bitmap, bitmap.width, bitmap.height, "Foto subida"); }
-    catch { say("No se pudo leer la imagen. Prueba con un JPG o PNG."); }
+    const check = await window.SmartShrimp.validateImageFile(file, { minSide });
+    if (check.ok) showImage(check.bitmap, check.bitmap.width, check.bitmap.height, "Foto subida"); else say(check.message);
     event.target.value = ""; });
 
   resetButton.addEventListener("click", () => { points = []; distance = null; applyButton.disabled = true; draw(); say("Haz clic en la marca 0 de la regla."); });

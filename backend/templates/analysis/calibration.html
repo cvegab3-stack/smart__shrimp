@@ -30,10 +30,10 @@
       <form id="calibration-form" class="form-grid">{% csrf_token %}
         <div class="form-grid form-grid-two"><div class="field"><label for="reference-length">Medida de referencia (cm)</label><input id="reference-length" name="reference_length_cm" type="number" min="0.001" step="0.001" placeholder="Ej.: 10" required><small class="field-help">Longitud real de un objeto medido con regla (p. ej. una regla de 10 cm sobre la bandeja).</small></div><div class="field"><label for="reference-pixels">Medida equivalente (px)</label><input id="reference-pixels" name="reference_pixels" type="number" min="20" step="1" placeholder="Ej.: 400" required><small class="field-help">Píxeles que ocupa ese mismo objeto en una foto de la cámara del análisis, sin recortar ni redimensionar (mínimo 20 px).</small></div></div>
         <button class="btn btn-secondary measure-open" id="measure-open" type="button" hidden>📏 Medir los píxeles con la cámara o una foto</button>
-        <div id="measure-panel" class="measure-panel" hidden>
+        <div id="measure-panel" data-min-image-side="{{ min_image_side }}" class="measure-panel" hidden>
           <div class="measure-head"><strong>Medir la referencia en una imagen</strong><button class="btn btn-ghost" id="measure-close" type="button">Cerrar</button></div>
           <ol class="measure-steps"><li>Coloca una regla sobre la bandeja, con la cámara en su posición real de trabajo.</li><li>Abre la cámara que usarás en los análisis y toma una foto, o sube una foto de esa misma cámara (sin recortar).</li><li>Haz clic en la marca <strong>0</strong> de la regla y luego en la marca final (p. ej. <strong>10</strong>). Escribe esos cm en «Medida de referencia».</li></ol>
-          <div class="measure-sources"><select id="measure-camera" aria-label="Cámara"><option value="">Cámara predeterminada</option></select><button class="btn btn-secondary" id="measure-start-camera" type="button">Abrir cámara</button><button class="btn btn-teal" id="measure-capture" type="button" hidden>Tomar foto</button><label class="btn btn-secondary" for="measure-file">Subir foto</label><input id="measure-file" type="file" accept="image/*" hidden></div>
+          <div class="measure-sources"><select id="measure-camera" aria-label="Cámara"><option value="">Cámara predeterminada</option></select><button class="btn btn-secondary" id="measure-start-camera" type="button">Abrir cámara</button><button class="btn btn-teal" id="measure-capture" type="button" hidden>Tomar foto</button><label class="btn btn-secondary" for="measure-file">Subir foto</label><input id="measure-file" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" hidden></div>
           <video id="measure-video" class="measure-media" autoplay muted playsinline hidden></video>
           <canvas id="measure-canvas" class="measure-media measure-canvas" hidden></canvas>
           <p id="measure-status" class="measure-status" role="status"></p>
@@ -52,5 +52,5 @@
     {% endif %}
   </section>
 </main>
-{% if request.user.role == 'administrador' %}<script src="{% static 'js/calibration.js' %}?v=20261106b" defer></script><script src="{% static 'js/calibration_measure.js' %}?v=20261104n" defer></script>{% endif %}
+{% if request.user.role == 'administrador' %}<script src="{% static 'js/calibration.js' %}?v=20261106b" defer></script><script src="{% static 'js/calibration_measure.js' %}?v=20261107a" defer></script>{% endif %}
 {% endblock %}

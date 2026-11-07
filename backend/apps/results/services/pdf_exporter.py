@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from apps.results.models import ShrimpRecord
-from apps.results.services.report_service import VISUAL_DISCLAIMER
+from apps.results.services.report_service import VISUAL_DISCLAIMER, flow_rows
 
 
 def export_report_pdf(report) -> bytes:
@@ -21,6 +21,7 @@ def export_report_pdf(report) -> bytes:
             ["Peso promedio estimado (g) — valor estimado", str(report.summary["average_estimated_weight_g"] if report.summary["average_estimated_weight_g"] is not None else "No disponible")]]
     data.extend([[f"Tamaño: {key}", str(value)] for key, value in sorted(report.summary["size_distribution"].items())])
     data.extend([[f"Condición visual: {key}", str(value)] for key, value in sorted(report.summary["visual_condition_distribution"].items())])
+    data.extend([[label, str(count)] for label, count in flow_rows(report.summary)])
     table = Table(data, repeatRows=1, colWidths=(250, 250))
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0B2A4A")),

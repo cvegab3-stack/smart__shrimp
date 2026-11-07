@@ -108,6 +108,7 @@ class VisionClientTests(TestCase):
     @patch("integrations.vision_client.requests.post")
     def test_timeout_retries_once_then_sends_signed_service_token(self, post):
         response = post.return_value
+        response.status_code = 200
         response.json.return_value = {"detections": []}
         post.side_effect = [requests.Timeout("first attempt"), response]
         result = process_frame({"frame_id": "f1"})

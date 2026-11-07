@@ -178,3 +178,81 @@ button,input,select,textarea{font:inherit} button,a{touch-action:manipulation} b
 .session-expired-notice{margin-top:14px;justify-content:center}
 /* Tabla de cuentas: nombre y correo bajo el usuario. */
 .account-names{display:grid;gap:2px;min-width:0}.account-detail{color:var(--muted);font-size:12px;word-break:break-word}
+/* Flujo de análisis: paso con error, reintento, historial con estado/operador y paginación, panel del administrador. */
+.step.failed{color:#a52b31}.step.failed .step-number{background:#d64545;color:#fff}
+.retry-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.history-filters{grid-template-columns:2fr repeat(5,1fr)}.filter-actions{grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end}
+.lot-card-reviewer{grid-template-columns:1.3fr 1fr repeat(4,.75fr) auto}.lot-error{color:#a52b31!important;font-weight:700;margin-top:3px}
+.lot-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pagination{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:18px;color:var(--muted);font-weight:700}
+.service-status{display:flex;align-items:center;gap:10px;font-weight:800}.service-dot{width:12px;height:12px;border-radius:50%;background:#b8c8d2}.service-dot.ok{background:#16a34a}.service-dot.down{background:#d64545}
+.config-errors{display:grid;gap:8px;margin:12px 0 0;padding:0;list-style:none}.config-errors li{display:grid;gap:2px;padding:10px 12px;border:1px solid #f7c8cb;border-radius:12px;background:#fff7f8;font-size:14px}.config-errors small{color:var(--muted)}
+.report-flow{display:flex;flex-wrap:wrap;gap:6px 14px}
+@media(max-width:1100px){.history-filters{grid-template-columns:1fr 1fr 1fr}.lot-card-reviewer{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:820px){.history-filters{grid-template-columns:1fr 1fr}.lot-card-reviewer{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.history-filters,.lot-card-reviewer{grid-template-columns:1fr}.filter-actions,.lot-actions,.retry-actions{display:grid;grid-template-columns:1fr}}
+/* Usuarios y roles: tarjeta «Crear usuario» con encabezado, requisitos en línea y campos con icono. */
+.users-page{max-width:940px}
+.create-user-card{position:relative;overflow:hidden;padding:16px 16px 24px}
+.create-user-wave{position:absolute;top:0;right:0;width:46%;max-width:320px;height:90px;fill:#e3f3f6;pointer-events:none}.create-user-wave .create-user-wave-front{fill:#cfe9ee}
+.create-user-head{position:relative;display:flex;align-items:center;gap:18px;padding-bottom:14px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.create-user-head h2{margin:0 0 4px;font-size:26px}.create-user-head p{margin:0;color:var(--muted)}
+.create-user-icon{flex:none;width:60px;height:60px;border-radius:16px;display:grid;place-items:center;background:#e3f3f6;color:var(--teal)}
+.create-user-icon svg,.password-requirements-icon svg,.input-glyph svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.create-user-icon svg{width:30px;height:30px}
+.password-requirements{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 18px;border-radius:14px;background:#e6f4f6}
+.password-requirements strong{font-size:14px}
+.password-requirements-icon{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:#fff;color:var(--teal)}.password-requirements-icon svg{width:22px;height:22px}
+.password-rules-inline{display:flex;flex-wrap:wrap;gap:4px 22px;margin-top:4px;font-size:12px;color:var(--ink)}
+.password-rules-inline li{padding-left:14px}.password-rules-inline li::before{content:"";top:50%;left:0;width:7px;height:7px;border-radius:50%;background:var(--teal);transform:translateY(-50%)}
+.password-rules-inline li.is-info::before{content:"";background:var(--teal)}
+.password-rules-inline li.is-ok{color:#0a6532;font-weight:700}.password-rules-inline li.is-ok::before{content:"";background:var(--green)}
+.create-user-form{grid-template-columns:1fr 1fr;gap:16px 24px;padding:0 6px}
+.input-icon{position:relative}
+.input-glyph{position:absolute;z-index:1;left:7px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:#eef6f8;color:var(--navy);pointer-events:none}
+.input-glyph svg{width:19px;height:19px}
+.field .input-icon input,.field .input-icon select{padding-left:50px}
+.btn-create-user{min-height:48px;margin-top:10px;border-radius:12px;font-size:17px}
+@media(max-width:820px){.create-user-form{grid-template-columns:1fr;padding:0}.create-user-wave{width:60%}}
+@media(max-width:560px){.create-user-head h2{font-size:22px}.create-user-icon{width:50px;height:50px}.password-requirements{align-items:flex-start}}
+/* La tabla de cuentas se desplaza dentro de su tarjeta (sin ensanchar la página) y los nombres no se parten letra a letra. */
+.users-page .admin-layout{grid-template-columns:minmax(0,1fr)}.users-page .admin-layout>.card{min-width:0}
+.accounts-table td:first-child{min-width:190px}.account-name{word-break:normal;overflow-wrap:anywhere}
+/* Captura de imagen: recuadro para arrastrar y soltar la foto (o hacer clic para elegirla). */
+.field-label{font-weight:700;font-size:14px}
+.dropzone{position:relative;display:grid;justify-items:center;gap:8px;padding:26px 18px;border:2px dashed #9fc6d1;border-radius:16px;background:#f5fbfc;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.dropzone:hover{border-color:var(--teal);background:#eef8fa}
+.dropzone:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px rgba(11,127,140,.18)}
+.dropzone.is-dragover{border-color:var(--teal);border-style:solid;background:#e3f4f6}
+.dropzone.has-file{border-style:solid;border-color:#7cc7a0;background:#f1faf4}
+.dropzone:has(.dropzone-input:disabled){cursor:progress;opacity:.7}
+.dropzone-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.dropzone-icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#e3f3f6;color:var(--teal)}
+.dropzone-icon svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dropzone-text strong{color:var(--ink)}.dropzone-link{color:var(--teal);font-weight:800;text-decoration:underline}
+.dropzone-file{font-size:14px;font-weight:700;color:#0a6532;word-break:break-all}
+/* Captura de imagen en una columna: recuadro, vista previa y botón (antes el botón se estiraba en la 2.ª columna). */
+.flow-card #image-controls{grid-template-columns:minmax(0,1fr)}
+#image-controls .capture-preview{max-height:320px;width:100%;object-fit:contain;border-radius:14px;background:#f5fbfc}
+/* Usuarios y roles, ajuste a la maqueta: todo el ancho, formulario compacto y textos más grandes. */
+.users-page{max-width:1500px}
+.create-user-card{padding:14px 16px 18px}
+.create-user-wave{width:32%;max-width:460px;height:80px}
+.create-user-head{gap:16px;padding-bottom:10px;margin-bottom:12px}.create-user-head h2{font-size:28px;margin-bottom:2px}.create-user-head p{font-size:16px}
+.create-user-icon{width:58px;height:58px}
+.password-requirements{padding:10px 18px;margin-bottom:10px}.password-requirements strong{font-size:15px}
+.password-rules-inline{font-size:14px;gap:2px 44px}.password-rules-inline li{padding-left:16px}.password-rules-inline li::before{width:8px;height:8px}
+.create-user-form{gap:8px 38px;padding:0 10px}.create-user-form .field{gap:4px}.create-user-form .field label{font-size:15px}
+.create-user-form .field .input-icon input,.create-user-form .field .input-icon select{min-height:36px;padding-top:6px;padding-bottom:6px}
+.create-user-form .input-glyph{width:28px;height:28px;left:5px;border-radius:8px}.create-user-form .input-glyph svg{width:17px;height:17px}
+.create-user-form .password-toggle{width:34px;height:34px}
+.btn-create-user{min-height:40px;margin-top:8px;padding-top:6px;padding-bottom:6px;font-size:17px}
+.create-user-form .input-icon select{appearance:none;-webkit-appearance:none;padding-right:44px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f2a43' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center/20px 20px}
+/* Imagen ya elegida: el recuadro grande se reduce a una barra con el nombre y «Cambiar imagen». */
+.dropzone.has-file{grid-template-columns:auto minmax(0,1fr);justify-items:start;align-items:center;gap:12px;padding:10px 14px;text-align:left}
+.dropzone.has-file .dropzone-text{display:none}
+.dropzone.has-file .dropzone-icon{width:38px;height:38px;border-radius:11px;background:#dcf2e5;color:#0a6532}
+.dropzone.has-file .dropzone-icon svg{width:20px;height:20px}
+.dropzone-file{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;min-width:0}
+.dropzone-file[hidden]{display:none}
+.dropzone-file-name{min-width:0;overflow-wrap:anywhere}

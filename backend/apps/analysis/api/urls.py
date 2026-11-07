@@ -4,7 +4,7 @@ from django.urls import path
 
 from .views import (
     AnalysisCompleteView, AnalysisDetailView, AnalysisListCreateView, CalibrationActivateView, CalibrationView,
-    FrameRelayView, ThresholdView,
+    FrameRelayView, ThresholdView, VisionHealthView,
 )
 
 urlpatterns = [
@@ -15,4 +15,5 @@ urlpatterns = [
     path("calibration/", CalibrationView.as_view(), name="calibration"),
     path("calibration/<int:version>/activate/", CalibrationActivateView.as_view(), name="calibration-activate"),
     path("thresholds/", ThresholdView.as_view(), name="thresholds"),
+    path("vision/health/", VisionHealthView.as_view(), name="vision-health"),
 ]

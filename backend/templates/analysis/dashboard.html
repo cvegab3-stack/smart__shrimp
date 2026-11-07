@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Inicio · SMART SHRIMP{% endblock %}
 {% block top_title %}Panel de trabajo{% endblock %}
 {% block content %}
@@ -24,7 +25,14 @@
       {% if calibration %}<span class="chip chip-green">Activa · versión {{ calibration.version }}</span><div class="metric-list"><div class="metric-row"><span>Referencia real</span><strong>{{ calibration.reference_length_cm }} cm</strong></div><div class="metric-row"><span>Medida en imagen</span><strong>{{ calibration.reference_pixels }} px</strong></div></div>{% if request.user.role == 'administrador' %}<a class="btn btn-secondary btn-block" href="{% url 'calibration-page' %}">Administrar calibración</a>{% endif %}
       {% else %}<div class="alert alert-amber"><strong>No hay calibración vigente.</strong><br>El administrador debe configurar una referencia antes de medir.</div>{% endif %}
     </article>
+    {% if request.user.role == 'administrador' %}<article class="card" id="vision-service-card"><div class="card-head"><div><h2>Servicio de análisis</h2><p>Sin él, los operadores no pueden analizar.</p></div><span class="settings-icon">◎</span></div>
+      <div class="service-status" role="status" aria-live="polite"><span class="service-dot" id="vision-dot"></span><span id="vision-status">Comprobando…</span></div>
+      <button class="btn btn-secondary btn-block" id="vision-refresh" type="button">Comprobar de nuevo</button></article>
+    <article class="card span-2"><div class="card-head"><div><h2>Errores de configuración</h2><p>Análisis de los últimos {{ config_errors_days }} días que fallaron por algo que solo el administrador puede corregir. Los operadores los reintentan cuando esté resuelto.</p></div></div>
+      {% if config_errors %}<ul class="config-errors">{% for item in config_errors %}<li><strong>{{ item.error_text }}</strong><small>Lote {{ item.batch_code }} · {{ item.created_at|date:'d/m/Y H:i' }} · operador {{ item.operator.get_full_name|default:item.operator.username }} · código {{ item.error_code }}</small></li>{% endfor %}</ul>
+      {% else %}<div class="alert alert-success" role="status">Sin errores de configuración en los últimos {{ config_errors_days }} días.</div>{% endif %}</article>{% endif %}
     <div class="span-2"><div class="notice"><strong>Información importante:</strong> el peso disponible es un valor estimado. La condición es una evaluación visual y no reemplaza análisis microbiológicos, químicos ni sanitarios.</div></div>
   </section>
 </main>
+{% if request.user.role == 'administrador' %}<script src="{% static 'js/admin_status.js' %}?v=20261107a" defer></script>{% endif %}
 {% endblock %}
