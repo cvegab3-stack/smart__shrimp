@@ -104,11 +104,11 @@ class Calibration(models.Model):
         return bands
 
     def _size_range_errors(self) -> list[str]:
-        """Rangos lógicos: sin negativos, mínimo < máximo, sin solaparse y en orden pequeño < mediano < grande.
+        """Rangos lógicos: sin negativos, mínimo < máximo, sin solaparse, sin huecos y en orden pequeño < mediano < grande.
 
-        Los límites son opcionales (None = sin límite), p. ej. pequeño sin mínimo o grande sin máximo.
-        Dos rangos seguidos pueden compartir el límite (pequeño hasta 8, mediano desde 8): esa medida cuenta en la
-        categoría menor (ver vision_service/app/pipeline/measurement.py).
+        Los límites son opcionales (None = sin límite), p. ej. pequeño sin mínimo o grande sin máximo: un límite None
+        nunca cuenta como hueco. Dos rangos seguidos pueden compartir el límite (pequeño hasta 8, mediano desde 8):
+        esa medida cuenta en la categoría menor (ver vision_service/app/pipeline/measurement.py).
         """
         expected = [key for key, _ in self.SIZE_CATEGORIES]
         if not isinstance(self.size_ranges, dict) or set(self.size_ranges) != set(expected):
@@ -135,6 +135,10 @@ class Calibration(models.Model):
                 problems.append(f"Los rangos de {left.lower()} y {right.lower()} se superponen.")
             elif left_min > right_min:
                 problems.append(f"El rango de {left.lower()} debe ser menor que el de {right.lower()}.")
+            elif left_max < right_min:
+                problems.append(
+                    f"Hay un hueco entre {left.lower()} y {right.lower()}: las medidas de {_num(left_max)} a "
+                    f"{_num(right_min)} cm quedan sin categoría.")
         # Si pequeño < mediano < grande sin solaparse de dos en dos, pequeño y grande tampoco pueden solaparse.
         return problems
 

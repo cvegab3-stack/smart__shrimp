@@ -20,8 +20,8 @@ from shrimp_contracts.token_claims import verify_service_token
 
 RANGES = {
     "pequeno": {"min_cm": 0, "max_cm": 8},
-    "mediano": {"min_cm": 8.1, "max_cm": 13},
-    "grande": {"min_cm": 13.1, "max_cm": None},
+    "mediano": {"min_cm": 8, "max_cm": 13},
+    "grande": {"min_cm": 13, "max_cm": None},
 }
 
 
@@ -158,8 +158,8 @@ class CalibrationRangeValidationTests(TestCase):
         self.assertIn("El rango de pequeño debe ser menor que el de mediano.", self.errors_for(reversed_ranges))
 
     def test_optional_limits_still_allowed(self):
-        open_ended = {"pequeno": {"min_cm": None, "max_cm": 8}, "mediano": {"min_cm": 8.1, "max_cm": 13},
-                      "grande": {"min_cm": 13.1, "max_cm": None}}
+        open_ended = {"pequeno": {"min_cm": None, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13},
+                      "grande": {"min_cm": 13, "max_cm": None}}
         self.assertEqual(create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=open_ended,
                                             actor=self.admin).version, 1)
 
@@ -201,6 +201,50 @@ class CalibrationSharedLimitTests(TestCase):
         with self.assertRaises(ValidationError) as caught:
             create_calibration(reference_length_cm=10, reference_pixels=400, size_ranges=overlap, actor=self.admin)
         self.assertIn("Los rangos de pequeño y mediano se superponen.", str(caught.exception))
+
+
+class CalibrationRangeGapTests(TestCase):
+    """Los rangos no pueden dejar huecos: toda medida debe caer en alguna categoría."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("admin", password="password", role=User.Role.ADMINISTRATOR)
+
+    def errors_for(self, ranges):
+        with self.assertRaises(ValidationError) as caught:
+            create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=ranges, actor=self.admin)
+        return " ".join(sum(caught.exception.message_dict.values(), []))
+
+    def test_continuous_ranges_are_saved(self):
+        continuous = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13},
+                      "grande": {"min_cm": 13, "max_cm": None}}
+        self.assertEqual(create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=continuous,
+                                            actor=self.admin).size_ranges, continuous)
+
+    def test_one_gap_is_rejected_and_reason_names_categories_and_measures(self):
+        gap = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 10, "max_cm": 13},
+               "grande": {"min_cm": 13, "max_cm": None}}
+        text = self.errors_for(gap)
+        self.assertIn("hueco entre pequeño y mediano", text)
+        self.assertIn("de 8 a 10 cm quedan sin categoría", text)
+
+    def test_several_gaps_are_all_reported(self):
+        gaps = {"pequeno": {"min_cm": 0, "max_cm": 5}, "mediano": {"min_cm": 7, "max_cm": 9},
+                "grande": {"min_cm": 11, "max_cm": None}}
+        text = self.errors_for(gaps)
+        self.assertIn("hueco entre pequeño y mediano", text)
+        self.assertIn("hueco entre mediano y grande", text)
+
+    def test_shared_limit_is_not_a_gap(self):
+        shared = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13},
+                  "grande": {"min_cm": 13, "max_cm": None}}
+        self.assertEqual(create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=shared,
+                                            actor=self.admin).version, 1)
+
+    def test_none_limits_do_not_count_as_a_gap(self):
+        open_ended = {"pequeno": {"min_cm": None, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13},
+                      "grande": {"min_cm": 13, "max_cm": None}}
+        self.assertEqual(create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=open_ended,
+                                            actor=self.admin).version, 1)
 
 
 class CalibrationScaleLogicTests(TestCase):

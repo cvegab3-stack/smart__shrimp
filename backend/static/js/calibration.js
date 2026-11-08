@@ -48,7 +48,8 @@
     if (problems.length) return problems;
     for (let i = 0; i < bounds.length - 1; i += 1) { const [left, leftMin, leftMax] = bounds[i]; const [right, rightMin, rightMax] = bounds[i + 1];
       if (Math.max(leftMin, rightMin) < Math.min(leftMax, rightMax)) problems.push(`Los rangos de ${left} y ${right} se superponen.`);  // tocarse en el límite está permitido
-      else if (leftMin > rightMin) problems.push(`El rango de ${left} debe ser menor que el de ${right}.`); }
+      else if (leftMin > rightMin) problems.push(`El rango de ${left} debe ser menor que el de ${right}.`);
+      else if (leftMax < rightMin) problems.push(`Hay un hueco entre ${left} y ${right}: las medidas de ${fmt(leftMax)} a ${fmt(rightMin)} cm quedan sin categoría.`); }  // límites null (±Infinity) nunca entran aquí
     return problems; }
 
   // Límites encadenados: el máximo de una categoría rellena el mínimo de la siguiente. Si el administrador edita ese
