@@ -19,7 +19,7 @@ class SessionFlowIntegrationTests(TestCase):
     def test_inference_session_lifecycle(self):
         operator = User.objects.create_user("operator", password="password", role=User.Role.OPERATOR)
         admin = User.objects.create_user("admin", password="password", role=User.Role.ADMINISTRATOR)
-        ranges = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 8.1, "max_cm": 13}, "grande": {"min_cm": 13.1, "max_cm": None}}
+        ranges = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13}, "grande": {"min_cm": 13, "max_cm": None}}
         create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=ranges, actor=admin)
         create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
         with patch("apps.analysis.services.session_service.vision_client.start_session", return_value={"ok": True}):
@@ -52,7 +52,7 @@ class AnalysisRecoveryFlowTests(TestCase):
 
         operator = User.objects.create_user("operator", password="password", role=User.Role.OPERATOR)
         admin = User.objects.create_user("admin", password="password", role=User.Role.ADMINISTRATOR)
-        ranges = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 8.1, "max_cm": 13}, "grande": {"min_cm": 13.1, "max_cm": None}}
+        ranges = {"pequeno": {"min_cm": 0, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13}, "grande": {"min_cm": 13, "max_cm": None}}
         create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=ranges, actor=admin)
         create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
         api = APIClient()
