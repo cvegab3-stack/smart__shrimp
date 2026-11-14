@@ -1,0 +1,84 @@
+{
+  "generated_at": "2026-11-04T17:23:53-05:00",
+  "split": "test",
+  "command": "python.exe training\\scripts\\evaluate_test_split.py --data-dir <SMART_SHRIMP_DATA_DIR>",
+  "environment": {
+    "python": "3.12.10",
+    "torch": "2.15.0+cu132",
+    "ultralytics": "8.4.202",
+    "device": "NVIDIA GeForce RTX 3050 6GB Laptop GPU"
+  },
+  "model": {
+    "path": "models\\detector\\best.pt",
+    "sha256": "98112a05dbd0f7c063aff4c4758228b2464f92071480b811f99064b2c95e4ea7",
+    "matches_model_info": true,
+    "trained_on": "C:\\smart_shrimp_data\\shrimp_combined_v2\\data.yaml",
+    "train_run": "camaron_v2_combined_dry_r2"
+  },
+  "dataset": {
+    "data_yaml": "<SMART_SHRIMP_DATA_DIR>\\shrimp_roboflow_v4\\detect_grouped_reviewed_v1\\data.yaml",
+    "images": 347,
+    "objects": 697,
+    "test_fingerprint_sha256": "f06b03347f87a108251dff82af8aca18d92cfea9b23a2e8ad0c1e26a417c0b49"
+  },
+  "separation_check": {
+    "ok": true,
+    "audit_csv": "<SMART_SHRIMP_DATA_DIR>\\shrimp_roboflow_v4\\audit\\images.csv",
+    "images": {
+      "train": 6047,
+      "val": 501,
+      "test": 347
+    },
+    "test_groups": [
+      "g07_20230311_143134",
+      "g12_20230314_170603"
+    ],
+    "shared_counts": {
+      "test_train_name": 0,
+      "test_train_source": 0,
+      "test_train_sha256": 0,
+      "test_train_group": 0,
+      "test_train_video": 0,
+      "test_val_name": 0,
+      "test_val_source": 0,
+      "test_val_sha256": 0,
+      "test_val_group": 0,
+      "test_val_video": 0
+    },
+    "problems": []
+  },
+  "settings": {
+    "ultralytics_val": {
+      "conf": 0.001,
+      "iou": 0.7,
+      "imgsz": 640,
+      "single_cls": true
+    },
+    "operating_point": {
+      "conf": 0.5,
+      "iou_match": 0.5,
+      "imgsz": 640
+    }
+  },
+  "metrics": {
+    "ultralytics": {
+      "precision": 0.9371,
+      "recall": 0.7905,
+      "mAP50": 0.8938,
+      "mAP50_95": 0.7852
+    },
+    "at_conf_0.5": {
+      "images": 347,
+      "objects": 697,
+      "tp": 491,
+      "fp": 11,
+      "fn": 206,
+      "precision": 0.9781,
+      "recall": 0.7044,
+      "images_with_fp": 10,
+      "count_mae": 0.5735,
+      "count_exact": 0.5562
+    }
+  },
+  "note_paths": "Rutas locales del equipo de evaluación sustituidas por <SMART_SHRIMP_DATA_DIR> (carpeta de datos) y rutas relativas al proyecto."
+}

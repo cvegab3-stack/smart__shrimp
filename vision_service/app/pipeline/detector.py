@@ -11,8 +11,10 @@ class DetectorUnavailable(RuntimeError):
 class YoloDetector:
     """Adaptador de YOLO con carga diferida de pesos locales."""
 
-    def __init__(self, weights_path: str = "") -> None:
+    def __init__(self, weights_path: str = "", nms_iou: float = 0.7) -> None:
         self.weights_path = Path(weights_path) if weights_path else None
+        # Umbral de solape de la supresión de duplicados (NMS) de YOLO; ver DETECTOR_NMS_IOU en app/config.py.
+        self.nms_iou = nms_iou
         self._model = None
 
     @property
@@ -37,7 +39,7 @@ class YoloDetector:
 
     def detect(self, image, confidence: float) -> list[dict[str, Any]]:
         """Devuelve cuadros y etiquetas del catálogo detectados por YOLO."""
-        results = self._load()(image, conf=confidence, verbose=False)
+        results = self._load()(image, conf=confidence, iou=self.nms_iou, verbose=False)
         detections: list[dict[str, Any]] = []
         for result in results:
             names = result.names

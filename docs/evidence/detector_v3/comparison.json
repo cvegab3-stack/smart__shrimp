@@ -1,0 +1,127 @@
+{
+  "generated_at": "2026-11-14",
+  "note": "Comparación modelo anterior (camaron_v2_combined_dry_r2, sha 98112a05…) vs nuevo (camaron_v3_baldosa, sha c4316113…) en las listas de dataset/shrimp_combined_v3, imgsz 640. Métricas @0.5: conf 0.5, TP con IoU >= 0.5, NMS de YOLO 0.7 salvo indicación.",
+  "evaluation_lists": {
+    "test_baldosa": "test_baldosa.txt (video 1, 21 fotogramas, 216 camarones)",
+    "val_baldosa": "val_baldosa.txt (10 fotos)",
+    "test_old": "v2_test_old.txt (347)",
+    "test_new": "v2_test_new.txt (40)"
+  },
+  "anterior": {
+    "test_baldosa": {
+      "imagenes": 21,
+      "mAP50": 0.02,
+      "mAP50_95": 0.017,
+      "precision@0.5": 0.333,
+      "recall@0.5": 0.005,
+      "conteo_exacto@0.5": 0.0
+    },
+    "val_baldosa": {
+      "imagenes": 10,
+      "mAP50": 0.92,
+      "mAP50_95": 0.809,
+      "precision@0.5": 1.0,
+      "recall@0.5": 0.789,
+      "conteo_exacto@0.5": 0.7
+    },
+    "test_old": {
+      "imagenes": 347,
+      "mAP50": 0.894,
+      "mAP50_95": 0.785,
+      "precision@0.5": 0.978,
+      "recall@0.5": 0.704,
+      "conteo_exacto@0.5": 0.556
+    },
+    "test_new": {
+      "imagenes": 40,
+      "mAP50": 0.972,
+      "mAP50_95": 0.786,
+      "precision@0.5": 1.0,
+      "recall@0.5": 0.886,
+      "conteo_exacto@0.5": 0.8
+    }
+  },
+  "nuevo": {
+    "test_baldosa": {
+      "imagenes": 21,
+      "mAP50": 0.984,
+      "mAP50_95": 0.722,
+      "precision@0.5": 0.969,
+      "recall@0.5": 0.87,
+      "conteo_exacto@0.5": 0.429
+    },
+    "val_baldosa": {
+      "imagenes": 10,
+      "mAP50": 0.979,
+      "mAP50_95": 0.868,
+      "precision@0.5": 1.0,
+      "recall@0.5": 0.947,
+      "conteo_exacto@0.5": 0.9
+    },
+    "test_old": {
+      "imagenes": 347,
+      "mAP50": 0.927,
+      "mAP50_95": 0.795,
+      "precision@0.5": 0.981,
+      "recall@0.5": 0.753,
+      "conteo_exacto@0.5": 0.591
+    },
+    "test_new": {
+      "imagenes": 40,
+      "mAP50": 0.915,
+      "mAP50_95": 0.765,
+      "precision@0.5": 0.875,
+      "recall@0.5": 0.875,
+      "conteo_exacto@0.5": 0.65
+    }
+  },
+  "nuevo_nms_0.5": {
+    "test_baldosa": {
+      "precision@0.5": 0.984,
+      "recall@0.5": 0.866,
+      "conteo_exacto@0.5": 0.476
+    },
+    "test_new": {
+      "precision@0.5": 0.975,
+      "recall@0.5": 0.875,
+      "conteo_exacto@0.5": 0.75
+    },
+    "test_old": {
+      "precision@0.5": 0.985,
+      "recall@0.5": 0.753,
+      "conteo_exacto@0.5": 0.591
+    }
+  },
+  "anterior_nms_0.5": {
+    "test_baldosa": {
+      "precision@0.5": 0.333,
+      "recall@0.5": 0.005,
+      "conteo_exacto@0.5": 0.0
+    },
+    "test_new": {
+      "precision@0.5": 1.0,
+      "recall@0.5": 0.886,
+      "conteo_exacto@0.5": 0.8
+    },
+    "test_old": {
+      "precision@0.5": 0.996,
+      "recall@0.5": 0.704,
+      "conteo_exacto@0.5": 0.545
+    }
+  },
+  "negatives_eval": {
+    "lista": "dataset/shrimp_combined_v2/negatives_eval (734 recortes sin camarón)",
+    "anterior": {
+      "recortes_con_falso_positivo": 289,
+      "recuadros": 331
+    },
+    "nuevo": {
+      "recortes_con_falso_positivo": 24,
+      "recuadros": 26
+    },
+    "nuevo_nms_0.5": {
+      "recortes_con_falso_positivo": 24,
+      "recuadros": 25
+    }
+  }
+}
