@@ -6,11 +6,20 @@ Para cada modelo y subconjunto (por defecto val_old, val_new, test_old, test_new
     error de conteo por imagen y porcentaje de imágenes con el conteo exacto;
   - falsos positivos sobre superficies sin camarones: recortes de val/test que no tocan ningún cuadro anotado
     (con margen) ni el borde de la imagen. Se generan una sola vez en <dataset>/negatives_eval y se reutilizan,
-    así todos los modelos se comparan con los mismos recortes.
+    así todos los modelos se comparan con los mismos recortes. Con otros --subsets salen solo de esos
+    subconjuntos y se guardan aparte, en <dataset>/negatives_eval__<subconjuntos>.
+
+El informe guarda además el SHA-256 de cada modelo, el NMS usado, y por subconjunto la lista leída, la huella de
+sus imágenes y etiquetas, y la comprobación de que no comparte imágenes con train (nombre, foto fuente, contenido).
 
 Uso:
     python training/scripts/evaluate_detector.py --dataset C:\\ruta\\dataset\\shrimp_combined_v2 `
         --model actual=models/detector/best.pt --model candidato=training/runs/detector/<run>/weights/best.pt `
+        --out training/runs/detector/eval/<nombre>
+
+Con shrimp_combined_v3 (las listas de v2 se llaman v2_<s>.txt y se encuentran solas) y el NMS de la aplicación:
+    python training/scripts/evaluate_detector.py --dataset C:\\ruta\\dataset\\shrimp_combined_v3 `
+        --model actual=models/detector/best.pt --subsets test_old test_new test_baldosa --nms-iou 0.5 `
         --out training/runs/detector/eval/<nombre>
 """
 
@@ -18,8 +27,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -56,20 +67,37 @@ def iou(a, b) -> float:
     return inter / union if union > 0 else 0.0
 
 
+def subset_list(dataset: Path, subset: str) -> Path:
+    """Lista de imágenes del subconjunto: <s>.txt, o v2_<s>.txt (así las guarda build_combined_v3.py)."""
+    for name in (f"{subset}.txt", f"v2_{subset}.txt"):
+        if (dataset / name).is_file():
+            return dataset / name
+    raise SystemExit(f"No existe {dataset / f'{subset}.txt'} ni {dataset / f'v2_{subset}.txt'}.")
+
+
 def subset_images(dataset: Path, subset: str) -> list[Path]:
-    return [(dataset / rel).resolve() for rel in (dataset / f"{subset}.txt").read_text(encoding="utf-8").split()]
+    return [(dataset / rel).resolve() for rel in subset_list(dataset, subset).read_text(encoding="utf-8").split()]
 
 
-def build_negatives(dataset: Path, pending: set[str]) -> Path:
-    """Recorta, de cada imagen de val/test, el mayor cuadrado sin camarones anotados. Determinista."""
+def negatives_dir(dataset: Path, subsets) -> Path:
+    """negatives_eval para los subconjuntos por defecto (como siempre); otra carpeta para cualquier otra selección,
+    así los recortes guardados nunca mezclan subconjuntos distintos."""
+    chosen = sorted(set(subsets))
+    if chosen == sorted(SUBSETS):
+        return dataset / "negatives_eval"
+    return dataset / ("negatives_eval__" + "_".join(chosen))
+
+
+def build_negatives(dataset: Path, pending: set[str], subsets=SUBSETS) -> Path:
+    """Recorta, de cada imagen de los subconjuntos pedidos, el mayor cuadrado sin camarones anotados. Determinista."""
     from PIL import Image
 
-    out = dataset / "negatives_eval"
+    out = negatives_dir(dataset, subsets)
     if (out / "index.csv").is_file():
         return out
     out.mkdir(exist_ok=True)
     rows = []
-    for subset in SUBSETS:
+    for subset in subsets:
         for image_path in subset_images(dataset, subset):
             if image_path.name in pending:
                 continue
@@ -104,13 +132,69 @@ def build_negatives(dataset: Path, pending: set[str]) -> Path:
     return out
 
 
-def operating_point(model, images: list[Path], dataset: Path, conf: float, device) -> dict:
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def source_of(name: str) -> str:
+    """Foto o fotograma original: quita la variante de Roboflow ('_jpg.rf.<hash>') y la repetición de train ('_r1')."""
+    stem = re.split(r"_(?:jpg|jpeg|png)\.rf\.", Path(name).stem)[0]
+    return re.sub(r"_r\d+$", "", stem)
+
+
+def fingerprint(images: list[Path], dataset: Path) -> dict:
+    """SHA-256 de (nombre, hash de imagen, hash de etiqueta), mismo formato que evaluate_test_split.py."""
+    digest = hashlib.sha256()
+    objects = 0
+    for image in sorted(images, key=lambda p: p.name):
+        label = dataset / "labels" / f"{image.stem}.txt"
+        if label.is_file():
+            objects += sum(1 for line in label.read_text(encoding="utf-8").splitlines() if line.strip())
+            label_sha = sha256_file(label)
+        else:
+            label_sha = "sin_etiqueta"
+        digest.update(f"{image.name}\t{sha256_file(image)}\t{label_sha}\n".encode())
+    return {"images": len(images), "objects": objects, "fingerprint_sha256": digest.hexdigest()}
+
+
+def image_keys(images: list[Path]) -> dict[str, set[str]]:
+    keys = {"name": set(), "source": set(), "sha256": set()}
+    for image in images:
+        keys["name"].add(image.name)
+        keys["source"].add(source_of(image.name))
+        if image.is_file():
+            keys["sha256"].add(sha256_file(image))
+    return keys
+
+
+def check_separation(images: list[Path], train: dict[str, set[str]] | None, train_list: str | None) -> dict:
+    """Compara el subconjunto con train por nombre, foto fuente y contenido. No detiene la evaluación."""
+    if train is None:
+        return {"checked": False, "ok": None, "reason": "el dataset no tiene train.txt"}
+    keys = image_keys(images)
+    shared = {key: sorted(keys[key] & train[key]) for key in keys}
+    return {
+        "checked": True,
+        "ok": not any(shared.values()),
+        "train_list": train_list,
+        "shared_counts": {f"train_{key}": len(values) for key, values in shared.items()},
+        "examples": {key: values[:3] for key, values in shared.items() if values},
+        "limit": "no detecta la misma escena o sesión con otro nombre y otro contenido (p. ej. fotogramas vecinos)",
+    }
+
+
+def operating_point(model, images: list[Path], dataset: Path, conf: float, device, nms_iou: float = 0.7) -> dict:
     tp = fp = fn = exact = 0
     abs_err = 0
     images_with_fp = 0
     for start in range(0, len(images), 16):
         batch = images[start:start + 16]
-        results = model.predict([str(p) for p in batch], conf=conf, imgsz=640, device=device, verbose=False)
+        results = model.predict([str(p) for p in batch], conf=conf, iou=nms_iou, imgsz=640, device=device,
+                                verbose=False)
         for image_path, result in zip(batch, results):
             height, width = result.orig_shape
             gts = read_boxes(dataset / "labels" / f"{image_path.stem}.txt", width, height)
@@ -144,7 +228,7 @@ def operating_point(model, images: list[Path], dataset: Path, conf: float, devic
     }
 
 
-def negatives_check(model, negatives: Path, conf_levels, device, sheet_path: Path) -> dict:
+def negatives_check(model, negatives: Path, conf_levels, device, sheet_path: Path, nms_iou: float = 0.7) -> dict:
     from PIL import Image, ImageDraw
 
     crops = sorted(p for p in negatives.glob("*.png"))
@@ -154,7 +238,7 @@ def negatives_check(model, negatives: Path, conf_levels, device, sheet_path: Pat
         subset = crop.name.split("__")[0]
         with Image.open(crop) as image:
             side = max(image.size)
-        result = model.predict(str(crop), conf=min(conf_levels), imgsz=int(math.ceil(side / 32) * 32),
+        result = model.predict(str(crop), conf=min(conf_levels), iou=nms_iou, imgsz=int(math.ceil(side / 32) * 32),
                                device=device, verbose=False)[0]
         scores = [float(b.conf[0]) for b in result.boxes]
         stats = by_subset.setdefault(subset, {"crops": 0, **{f"crops_with_fp@{c}": 0 for c in conf_levels},
@@ -188,11 +272,18 @@ def negatives_check(model, negatives: Path, conf_levels, device, sheet_path: Pat
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dataset", type=Path, required=True, help="Carpeta shrimp_combined_v2.")
+    parser.add_argument("--dataset", type=Path, required=True, help="Carpeta shrimp_combined_v2 o shrimp_combined_v3.")
     parser.add_argument("--model", action="append", required=True, help="nombre=ruta/al/modelo.pt (repetible).")
-    parser.add_argument("--subsets", nargs="+", default=SUBSETS)
+    parser.add_argument("--subsets", nargs="+", default=SUBSETS,
+                        help="Subconjuntos a evaluar (lista <s>.txt o v2_<s>.txt y data_<s>.yaml). "
+                             "Los negativos salen solo de ellos.")
     parser.add_argument("--conf", type=float, default=0.5, help="Confianza de operación (la de la aplicación).")
+    parser.add_argument("--nms-iou", type=float, default=0.7,
+                        help="IoU del NMS en val y predict (0.7 = YOLO por defecto; la aplicación usa 0.5).")
     parser.add_argument("--pending", type=Path, help="pending.csv del dataset anterior: se excluye de los negativos.")
+    parser.add_argument("--require-separation", action="store_true",
+                        help="Detenerse sin evaluar si algún subconjunto comparte imágenes con train o si no hay "
+                             "train.txt para comprobarlo. Sin esta opción solo se avisa.")
     parser.add_argument("--device", default="0")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -200,35 +291,60 @@ def main(argv=None) -> int:
     from ultralytics import YOLO
 
     dataset = args.dataset.resolve()
+
+    # Separación y huellas primero: con --require-separation se detiene antes de crear archivos o cargar modelos.
+    try:
+        train_list = subset_list(dataset, "train")
+        train_keys = image_keys(subset_images(dataset, "train"))
+    except SystemExit:
+        train_list, train_keys = None, None
+    subsets_info, failed = {}, []
+    for subset in args.subsets:
+        images = subset_images(dataset, subset)
+        separation = check_separation(images, train_keys, train_list.name if train_list else None)
+        if separation["ok"] is False:
+            failed.append(f"{subset} comparte imágenes con train: {separation['shared_counts']} "
+                          f"(p. ej. {separation['examples']})")
+        elif separation["ok"] is None:
+            failed.append(f"{subset}: no se pudo comprobar la separación ({separation['reason']})")
+        subsets_info[subset] = {"list": subset_list(dataset, subset).name, **fingerprint(images, dataset),
+                                "separation": separation}
+    if failed and args.require_separation:
+        raise SystemExit("--require-separation: no se evalúa.\n" + "\n".join(f"  - {f}" for f in failed))
+    for problem in failed:
+        print(f"AVISO: {problem}", file=sys.stderr)
+
     out = resolve(args.out)
     out.mkdir(parents=True, exist_ok=True)
     pending = set()
     if args.pending and args.pending.is_file():
         with open(args.pending, encoding="utf-8") as handle:
             pending = {row["image"] for row in csv.DictReader(handle)}
-    negatives = build_negatives(dataset, pending)
+    negatives = build_negatives(dataset, pending, args.subsets)
     conf_levels = sorted({0.25, args.conf})
 
-    report = {"dataset": str(dataset), "conf": args.conf, "iou_match": IOU_MATCH, "models": {}}
+    report = {"dataset": str(dataset), "conf": args.conf, "nms_iou": args.nms_iou, "iou_match": IOU_MATCH,
+              "require_separation": args.require_separation, "negatives_dir": str(negatives),
+              "subsets": subsets_info, "models": {}}
     for spec in args.model:
         name, _, path = spec.partition("=")
         model_path = resolve(path)
-        entry = {"path": str(model_path), "subsets": {}}
+        entry = {"path": str(model_path), "sha256": sha256_file(model_path), "subsets": {}}
         for subset in args.subsets:
             yaml_path = dataset / f"data_{subset}.yaml"
             metrics = YOLO(str(model_path)).val(
-                data=str(yaml_path), split="val", imgsz=640, batch=8, conf=0.001, iou=0.7, single_cls=True,
+                data=str(yaml_path), split="val", imgsz=640, batch=8, conf=0.001, iou=args.nms_iou, single_cls=True,
                 device=args.device, plots=False, verbose=False, project=str(out / "ultralytics"),
                 name=f"{name}_{subset}", exist_ok=True)
             entry["subsets"][subset] = {
                 "precision": round(float(metrics.box.mp), 4), "recall": round(float(metrics.box.mr), 4),
                 "mAP50": round(float(metrics.box.map50), 4), "mAP50_95": round(float(metrics.box.map), 4),
                 f"at_conf_{args.conf}": operating_point(YOLO(str(model_path)), subset_images(dataset, subset),
-                                                        dataset, args.conf, args.device),
+                                                        dataset, args.conf, args.device, args.nms_iou),
             }
             print(name, subset, json.dumps(entry["subsets"][subset]))
         entry["negatives"] = negatives_check(YOLO(str(model_path)), negatives, conf_levels, args.device,
-                                             out / f"false_positives_{name}.jpg")
+                                             out / f"false_positives_{name}.jpg", args.nms_iou)
         print(name, "negativos", json.dumps(entry["negatives"]["by_subset"]))
         report["models"][name] = entry
     (out / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
