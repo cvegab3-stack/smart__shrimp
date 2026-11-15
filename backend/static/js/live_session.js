@@ -25,6 +25,7 @@
   const MAX_IMAGE_BYTES = Number(app.dataset.maxImageBytes) || 12 * 1024 * 1024;
   const MIN_IMAGE_SIDE = Number(app.dataset.minImageSide) || 0;
   const SOURCE_KEY = "smartShrimp.lastSource";
+  window.SmartShrimp.watchCameraSelect(cameraSelect);  // recuerda la cámara elegida (también la usa la calibración)
 
   let analysis = null;        // estado del análisis tal como lo devolvió el servidor
   let mode = "identify";      // identify | capture | error | results
@@ -60,7 +61,9 @@
     if (next === "capture") { setStep(2); flowTitle.textContent = `${lot()} · captura`;
       flowSubtitle.textContent = analysis.attempt > 1 ? `Intento ${analysis.attempt}. Los intentos anteriores no se mezclan con este.` : "Captura el lote con la misma cámara de la calibración.";
       calibrationSummary.textContent = `Versión ${analysis.calibration_version} (congelada para este lote)`;
-      imageControls.hidden = analysis.source !== "imagen"; videoControls.hidden = analysis.source !== "video"; }
+      imageControls.hidden = analysis.source !== "imagen"; videoControls.hidden = analysis.source !== "video";
+      // Lista de cámaras ANTES de iniciar: así se elige la correcta (p. ej. Camo) sin empezar a analizar con otra.
+      if (analysis.source === "video" && !stream) window.SmartShrimp.fillCameraSelect(cameraSelect, { askPermission: true }); }
     if (next === "error") { setStep(2, true); flowTitle.textContent = `${lot()} · no se pudo completar`;
       flowSubtitle.textContent = "El lote quedó guardado con el error; reintentarlo abre un intento nuevo."; retryButton.disabled = false; discardButton.disabled = false; retryButton.focus(); }
     if (next === "results") { setStep(3); flowTitle.textContent = `${lot()} · resultados`; flowSubtitle.textContent = "Resultados guardados en el historial."; newAnalysisButton.focus(); }
@@ -207,6 +210,7 @@
   // Apaga la cámara y deja los botones según el estado: solo se puede volver a iniciar si el análisis sigue en curso.
   function stopCamera() {
     streaming = false; clearLive(); stream?.getTracks().forEach((track) => track.stop()); stream = null; video.srcObject = null;
+    cameraSelect.disabled = false;
     liveIndicator.hidden = true; startCameraButton.disabled = mode !== "capture"; finishVideoButton.disabled = true;
   }
   async function streamFrames() {
@@ -221,14 +225,16 @@
     setBusy(startCameraButton, true, "Abriendo cámara…");
     try {
       // Se pide la resolución en que se midió la calibración, para que sus píxeles equivalgan a los mismos cm.
-      const deviceId = cameraSelect.value; const constraints = {};
-      if (deviceId) constraints.deviceId = { exact: deviceId };
+      const constraints = window.SmartShrimp.cameraConstraint(cameraSelect);
       if (calibrationSize) { constraints.width = { ideal: calibrationSize[0] }; constraints.height = { ideal: calibrationSize[1] }; }
       stream = await navigator.mediaDevices.getUserMedia({ video: Object.keys(constraints).length ? constraints : true, audio: false }); video.srcObject = stream; await video.play();
       warnResolution(video.videoWidth, video.videoHeight, videoControls);
-      const devices = await navigator.mediaDevices.enumerateDevices(); const current = cameraSelect.value;
-      cameraSelect.replaceChildren(...devices.filter((device) => device.kind === "videoinput").map((device, index) => new Option(device.label || `Cámara ${index + 1}`, device.deviceId)));
-      if (current) cameraSelect.value = current;
+      // Muestra qué cámara quedó abierta (si era la predeterminada, su nombre real) y no deja cambiarla a mitad del
+      // análisis: los fotogramas de otra cámara romperían el seguimiento y la escala de la calibración.
+      await window.SmartShrimp.fillCameraSelect(cameraSelect);
+      const opened = stream.getVideoTracks()[0]?.getSettings?.().deviceId;
+      if (opened && [...cameraSelect.options].some((o) => o.value === opened)) cameraSelect.value = opened;
+      cameraSelect.disabled = true;
       liveIndicator.hidden = false; setBusy(startCameraButton, false); startCameraButton.disabled = true; streaming = true;
       captureStatus.textContent = "Analizando… «Detener y finalizar» se habilita con el primer fotograma analizado.";
       loopPromise = streamFrames();
