@@ -70,11 +70,45 @@ window.SmartShrimp = (() => {
     return { ok: true, bitmap };
   }
 
+  // Cámara elegida por el operador. Se recuerda en este navegador y la comparten el análisis en vivo y la medición
+  // de calibración (los píxeles por cm solo valen con la misma cámara). La "predeterminada" del navegador suele ser
+  // la primera instalada, a menudo una virtual (OBS) en vez de la que se quiere usar (p. ej. Camo).
+  const CAMERA_KEY = "smartShrimp.cameraId";
+  const savedCamera = () => { try { return localStorage.getItem(CAMERA_KEY) || ""; } catch { return ""; } };
+  const saveCamera = (id) => { try { if (id) localStorage.setItem(CAMERA_KEY, id); else localStorage.removeItem(CAMERA_KEY); } catch { /* sin almacenamiento */ } };
+  const videoInputs = async () => { try { return (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput"); } catch { return []; } };
+
+  // Rellena un <select> con las cámaras y marca la elegida antes. Hasta que se da permiso, el navegador no dice los
+  // nombres de las cámaras; con { askPermission: true } lo pide una vez (abre y cierra la cámara al instante) para
+  // poder mostrar la lista antes de empezar a analizar.
+  async function fillCameraSelect(select, { askPermission = false } = {}) {
+    let cameras = await videoInputs();
+    if (askPermission && cameras.some((d) => !d.label) && navigator.mediaDevices?.getUserMedia) {
+      try { (await navigator.mediaDevices.getUserMedia({ video: true, audio: false })).getTracks().forEach((t) => t.stop()); cameras = await videoInputs(); }
+      catch { /* sin permiso: queda la predeterminada; el error se muestra al abrir la cámara */ }
+    }
+    cameras = cameras.filter((d) => d.deviceId);
+    const wanted = select.value || savedCamera();
+    select.replaceChildren(new Option("Cámara predeterminada del navegador", ""),
+      ...cameras.map((d, i) => new Option(d.label || `Cámara ${i + 1}`, d.deviceId)));
+    select.value = cameras.some((d) => d.deviceId === wanted) ? wanted : "";
+    return cameras;
+  }
+
+  // Guarda cada cambio del <select> y lo mantiene al día si se conecta o desconecta una cámara.
+  function watchCameraSelect(select) {
+    select.addEventListener("change", () => saveCamera(select.value));
+    navigator.mediaDevices?.addEventListener?.("devicechange", () => fillCameraSelect(select));
+  }
+
+  // Restricción de getUserMedia para la cámara del <select> ({} = la predeterminada).
+  const cameraConstraint = (select) => (select.value ? { deviceId: { exact: select.value } } : {});
+
   // Crea un elemento con clase y texto. El texto va siempre por textContent: los datos (nombres de usuario, lotes)
   // nunca se interpretan como HTML.
   function el(tag, className, text) {
     const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
   }
 
-  return { csrf, errorText, request, el, cameraErrorText, validateImageFile };
+  return { csrf, errorText, request, el, cameraErrorText, validateImageFile, fillCameraSelect, watchCameraSelect, cameraConstraint };
 })();

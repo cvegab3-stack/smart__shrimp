@@ -1,0 +1,197 @@
+{
+  "generated_at": "2026-11-15",
+  "note": "Modelo anterior (camaron_v3_baldosa, sha c4316113…) vs nuevo (camaron_v4_bandeja last.pt, sha 491b3176…) en las listas de dataset/shrimp_combined_v4, imgsz 640, conf 0.5, NMS 0.5 (los de la aplicación), TP con IoU >= 0.5. 'best_pt_epoca28' es el otro peso del mismo entrenamiento, no elegido.",
+  "evaluation_lists": {
+    "test_bandeja": "test_bandeja.txt (montón de 6, 1 camarón y bandeja vacía; 5 fotos, 19 camarones)",
+    "val_bandeja": "val_bandeja.txt (6 separados; 3 fotos, 18 camarones)",
+    "test_baldosa": "v3_test_baldosa.txt (video 1 en baldosa, 21 fotogramas, 216 camarones)",
+    "test_new": "v3_v2_test_new.txt (40 fotos de superficies secas)",
+    "test_old": "v3_v2_test_old.txt (347, plataforma original de ESPOL = test oficial de RNF-03)"
+  },
+  "anterior_v3": {
+    "test_bandeja": {
+      "imagenes": 5,
+      "camarones": 19,
+      "mAP50": 0.006,
+      "mAP50_95": 0.002,
+      "encontrados@0.5": 0,
+      "falsos@0.5": 2,
+      "omitidos@0.5": 19,
+      "precision@0.5": 0.0,
+      "recall@0.5": 0.0,
+      "conteo_exacto@0.5": 0.4
+    },
+    "val_bandeja": {
+      "imagenes": 3,
+      "camarones": 18,
+      "mAP50": 0.2,
+      "mAP50_95": 0.035,
+      "encontrados@0.5": 0,
+      "falsos@0.5": 1,
+      "omitidos@0.5": 18,
+      "precision@0.5": 0.0,
+      "recall@0.5": 0.0,
+      "conteo_exacto@0.5": 0.0
+    },
+    "test_baldosa": {
+      "imagenes": 21,
+      "camarones": 216,
+      "mAP50": 0.99,
+      "mAP50_95": 0.706,
+      "encontrados@0.5": 187,
+      "falsos@0.5": 3,
+      "omitidos@0.5": 29,
+      "precision@0.5": 0.984,
+      "recall@0.5": 0.866,
+      "conteo_exacto@0.5": 0.476
+    },
+    "test_new": {
+      "imagenes": 40,
+      "camarones": 88,
+      "mAP50": 0.937,
+      "mAP50_95": 0.765,
+      "encontrados@0.5": 77,
+      "falsos@0.5": 2,
+      "omitidos@0.5": 11,
+      "precision@0.5": 0.975,
+      "recall@0.5": 0.875,
+      "conteo_exacto@0.5": 0.75
+    },
+    "test_old": {
+      "imagenes": 347,
+      "camarones": 697,
+      "mAP50": 0.929,
+      "mAP50_95": 0.796,
+      "encontrados@0.5": 525,
+      "falsos@0.5": 8,
+      "omitidos@0.5": 172,
+      "precision@0.5": 0.985,
+      "recall@0.5": 0.753,
+      "conteo_exacto@0.5": 0.591
+    }
+  },
+  "nuevo_v4": {
+    "test_bandeja": {
+      "imagenes": 5,
+      "camarones": 19,
+      "mAP50": 0.475,
+      "mAP50_95": 0.185,
+      "encontrados@0.5": 5,
+      "falsos@0.5": 1,
+      "omitidos@0.5": 14,
+      "precision@0.5": 0.833,
+      "recall@0.5": 0.263,
+      "conteo_exacto@0.5": 0.4
+    },
+    "val_bandeja": {
+      "imagenes": 3,
+      "camarones": 18,
+      "mAP50": 0.988,
+      "mAP50_95": 0.464,
+      "encontrados@0.5": 15,
+      "falsos@0.5": 2,
+      "omitidos@0.5": 3,
+      "precision@0.5": 0.882,
+      "recall@0.5": 0.833,
+      "conteo_exacto@0.5": 0.667
+    },
+    "test_baldosa": {
+      "imagenes": 21,
+      "camarones": 216,
+      "mAP50": 0.982,
+      "mAP50_95": 0.753,
+      "encontrados@0.5": 203,
+      "falsos@0.5": 1,
+      "omitidos@0.5": 13,
+      "precision@0.5": 0.995,
+      "recall@0.5": 0.94,
+      "conteo_exacto@0.5": 0.571
+    },
+    "test_new": {
+      "imagenes": 40,
+      "camarones": 88,
+      "mAP50": 0.982,
+      "mAP50_95": 0.803,
+      "encontrados@0.5": 80,
+      "falsos@0.5": 1,
+      "omitidos@0.5": 8,
+      "precision@0.5": 0.988,
+      "recall@0.5": 0.909,
+      "conteo_exacto@0.5": 0.825
+    },
+    "test_old": {
+      "imagenes": 347,
+      "camarones": 697,
+      "mAP50": 0.906,
+      "mAP50_95": 0.784,
+      "encontrados@0.5": 497,
+      "falsos@0.5": 5,
+      "omitidos@0.5": 200,
+      "precision@0.5": 0.99,
+      "recall@0.5": 0.713,
+      "conteo_exacto@0.5": 0.55
+    }
+  },
+  "best_pt_epoca28": {
+    "test_bandeja": {
+      "imagenes": 5,
+      "camarones": 19,
+      "mAP50": 0.415,
+      "mAP50_95": 0.164,
+      "encontrados@0.5": 4,
+      "falsos@0.5": 0,
+      "omitidos@0.5": 15,
+      "precision@0.5": 1.0,
+      "recall@0.5": 0.21,
+      "conteo_exacto@0.5": 0.4
+    },
+    "val_bandeja": {
+      "imagenes": 3,
+      "camarones": 18,
+      "mAP50": 0.995,
+      "mAP50_95": 0.463,
+      "encontrados@0.5": 13,
+      "falsos@0.5": 1,
+      "omitidos@0.5": 5,
+      "precision@0.5": 0.929,
+      "recall@0.5": 0.722,
+      "conteo_exacto@0.5": 0.333
+    },
+    "test_baldosa": {
+      "imagenes": 21,
+      "camarones": 216,
+      "mAP50": 0.972,
+      "mAP50_95": 0.737,
+      "encontrados@0.5": 193,
+      "falsos@0.5": 1,
+      "omitidos@0.5": 23,
+      "precision@0.5": 0.995,
+      "recall@0.5": 0.893,
+      "conteo_exacto@0.5": 0.238
+    },
+    "test_new": {
+      "imagenes": 40,
+      "camarones": 88,
+      "mAP50": 0.982,
+      "mAP50_95": 0.806,
+      "encontrados@0.5": 79,
+      "falsos@0.5": 3,
+      "omitidos@0.5": 9,
+      "precision@0.5": 0.963,
+      "recall@0.5": 0.898,
+      "conteo_exacto@0.5": 0.8
+    },
+    "test_old": {
+      "imagenes": 347,
+      "camarones": 697,
+      "mAP50": 0.895,
+      "mAP50_95": 0.776,
+      "encontrados@0.5": 492,
+      "falsos@0.5": 2,
+      "omitidos@0.5": 205,
+      "precision@0.5": 0.996,
+      "recall@0.5": 0.706,
+      "conteo_exacto@0.5": 0.539
+    }
+  }
+}

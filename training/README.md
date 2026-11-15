@@ -80,21 +80,31 @@ PowerShell, desde la raíz del proyecto (cambie `--data-dir` por la carpeta que 
     --data-dir "C:\ruta\a\dataset"
 ```
 
-Resultado del modelo actual (`best.pt`, SHA-256 `c4316113…`, entrenamiento `camaron_v3_baldosa`) obtenido el 14-11-2026 con 347 imágenes y 697 objetos, junto al modelo anterior (`98112a05…`):
+Resultado del modelo actual (`best.pt`, SHA-256 `491b3176…`, entrenamiento `camaron_v4_bandeja`) obtenido el 15-11-2026 con 347 imágenes y 697 objetos, junto al modelo anterior (`c4316113…`, `camaron_v3_baldosa`):
 
-| Métrica | Actual | Anterior |
+| Métrica | Actual (v4) | Anterior (v3) |
 |---|---|---|
-| mAP50 | 0,927 | 0,894 |
-| mAP50-95 | 0,795 | 0,785 |
-| Precision / recall (Ultralytics) | 0,927 / 0,856 | 0,937 / 0,791 |
-| Conf 0,5: precision / recall | 0,981 / 0,753 (TP 525, FP 10, FN 172) | 0,978 / 0,704 (TP 491, FP 11, FN 206) |
-| Conf 0,5: conteo exacto / error medio de conteo | 59,1 % / 0,50 camarones por imagen | 55,6 % / 0,57 |
+| mAP50 | 0,900 | 0,927 |
+| mAP50-95 | 0,784 | 0,795 |
+| Precision / recall (Ultralytics) | 0,954 / 0,796 | 0,927 / 0,856 |
+| Conf 0,5: precision / recall | 0,971 / 0,713 (TP 497, FP 15, FN 200) | 0,981 / 0,753 (TP 525, FP 10, FN 172) |
+| Conf 0,5: conteo exacto / error medio de conteo | 56,5 % / 0,55 camarones por imagen | 59,1 % / 0,50 |
 
-Coinciden con las cifras `test_old` de `models/detector/model_info.json`. El informe del modelo anterior está en `docs/evidence/detector_test/report_v2_camaron_v2_combined_dry_r2.json`, y la comparación en las fotos propias en baldosa, superficies secas y recortes sin camarón, en `docs/evidence/detector_v3/comparison.json`.
+En este test (la plataforma original de ESPOL) v4 baja un poco. Se eligió igualmente porque mejora en las condiciones propias del equipo (ver `docs/evidence/detector_v4/comparison.json`, conf 0,5 y NMS 0,5):
+
+| Camarones encontrados | v4 | v3 |
+|---|---|---|
+| Bandeja de acero, montón de 6 + 1 camarón + bandeja vacía (5 fotos) | 5 de 19 | 0 de 19 |
+| Bandeja de acero, 6 separados (3 fotos) | 15 de 18 | 0 de 18 |
+| Baldosa, video propio (21 fotogramas) | 203 de 216 | 187 de 216 |
+| Superficies secas de internet (`test_new`, 40 fotos) | 80 de 88 | 77 de 88 |
+
+Informes anteriores: `docs/evidence/detector_test/report_v3_camaron_v3_baldosa.json` y `report_v2_camaron_v2_combined_dry_r2.json`; comparación v2/v3 en `docs/evidence/detector_v3/comparison.json`.
 
 Límites:
 
-- Este test solo cubre la plataforma original (2 sesiones). `test_new` (40 imágenes de superficies secas) y `test_baldosa` (fotos propias) se miden aparte; ver `docs/evidence/detector_v3/comparison.json`.
+- Este test solo cubre la plataforma original (2 sesiones). Las fotos propias (`test_bandeja`, `test_baldosa`) y `test_new` se miden aparte con `evaluate_detector.py`.
+- En montones encimados sobre la bandeja todavía omite la mayoría de los camarones: faltan fotos de bandeja tomadas con la cámara de trabajo.
 - Ultralytics reescribe `labels.cache` en la carpeta del dataset y, la primera vez, descarga la fuente `Arial.ttf` a `%APPDATA%\Ultralytics`.
 
 Hallazgos, limitaciones y atributos aprovechables: [docs/dataset_shrimp_roboflow_v4.md](../docs/dataset_shrimp_roboflow_v4.md).
@@ -112,4 +122,6 @@ Los scripts `build_dataset.py`, `split_dataset.py`, `export_model.py`, `s3_sync.
 & .\.venv312\Scripts\python.exe training\scripts\prelabel_images.py --zip "..\dataset\fotos.zip" --output "..\dataset\camarones_nuevos_v1"
 ```
 
-Las pre-etiquetas hay que revisarlas todas antes de entrenar.
+Las pre-etiquetas hay que revisarlas todas antes de entrenar. Con una superficie que el modelo aún no conoce (p. ej. la bandeja de acero) casi todas salen mal: conviene vaciar `labels/` y etiquetar desde cero.
+
+Una vez corregidas, `build_combined_v3.py` y `build_combined_v4.py` muestran cómo sumarlas al dataset anterior separándolas por sesión (train/val/test), nunca foto a foto.

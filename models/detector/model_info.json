@@ -1,56 +1,56 @@
 {
   "file": "best.pt",
-  "sha256": "c431611357d665cef311e3270ae86b28beae147e98e182352e267632c7eef7ba",
+  "sha256": "491b31765e9c7614f7a477b60371d7f80bbf02927fce128ff07d2bde416361f6",
   "size_bytes": 6506410,
   "task": "detect",
   "architecture": "YOLOv8n (Ultralytics 8.4.201)",
   "classes": {"0": "camaron"},
   "class_note": "Entrenado con single_cls: el archivo guarda el nombre 'item'; vision_service lo traduce a 'camaron'.",
-  "promoted_at": "2026-11-14",
+  "promoted_at": "2026-11-15",
   "inference": {
     "imgsz": 640,
     "nms_iou": 0.5,
-    "nms_note": "vision_service usa DETECTOR_NMS_IOU=0.5 (YOLO usa 0.7 por defecto). Con 0.7 este modelo marca dos veces algunos camarones: precisión en test_new 0.875; con 0.5, 0.975 y el mismo recall."
+    "nms_note": "vision_service usa DETECTOR_NMS_IOU=0.5 (YOLO usa 0.7 por defecto): con 0.7 algunos camarones salían marcados dos veces."
   },
   "previous_model": {
-    "backup": "models/detector/backup/best_v2_camaron_v2_combined_dry_r2_20261104.pt",
-    "backup_info": "models/detector/backup/model_info_v2_camaron_v2_combined_dry_r2_20261104.json",
-    "sha256": "98112a05dbd0f7c063aff4c4758228b2464f92071480b811f99064b2c95e4ea7",
-    "run": "camaron_v2_combined_dry_r2",
+    "backup": "models/detector/backup/best_v3_camaron_v3_baldosa_20261114.pt",
+    "backup_info": "models/detector/backup/model_info_v3_camaron_v3_baldosa_20261114.json",
+    "sha256": "c431611357d665cef311e3270ae86b28beae147e98e182352e267632c7eef7ba",
+    "run": "camaron_v3_baldosa",
     "note": "El .pt de respaldo no se versiona (ver .gitignore): está en el equipo donde se entrenó. Para volver atrás, copiarlo a models/detector/best.pt y restaurar backup_info."
   },
   "source": {
-    "copied_from": "training/runs/detector/camaron_v3_baldosa/weights/best.pt",
-    "run": "camaron_v3_baldosa",
-    "trained_at": "2026-11-14T17:49:00-05:00",
-    "best_epoch": 21,
-    "initial_weights": "models/detector/best.pt (sha256 98112a05…, modelo anterior camaron_v2_combined_dry_r2)",
-    "dataset": "dataset/shrimp_combined_v3 = shrimp_combined_v2 + camarones_nuevos_v1 (87 imágenes propias en baldosa: 25 fotos y 62 fotogramas de 2 videos, 487 camarones; pre-etiquetadas con training/scripts/prelabel_images.py y corregidas a mano en Roboflow). Construido con training/scripts/build_combined_v3.py; ver manifest.json.",
-    "new_data_split": "Por sesión de captura: train = sesión grande en baldosa, primeros planos y video 2 (56 imágenes, x4); val = serie 1c-7c y camaron16/17/19 (10); test = video 1 (21 fotogramas, 216 camarones).",
+    "copied_from": "training/runs/detector/camaron_v4_bandeja/weights/last.pt",
+    "run": "camaron_v4_bandeja",
+    "trained_at": "2026-11-15T13:47:00-05:00",
+    "weights_choice": "last.pt (época 30), no best.pt (época 28, elegido por la validación, dominada por v3). Comparados ambos: last.pt encuentra más camarones en bandeja, baldosa y test_new con el mismo nivel de falsos positivos. Nota: la elección entre los dos pesos del mismo entrenamiento se hizo mirando también las listas de prueba.",
+    "initial_weights": "modelo anterior camaron_v3_baldosa (sha256 c4316113…)",
+    "dataset": "dataset/shrimp_combined_v4 = shrimp_combined_v3 + camarones_bandeja_v1 (25 fotos propias en bandeja de acero sobre mesa con mantel, 122 camarones, 3 fotos sin camarones; etiquetadas a mano en Roboflow). Construido con training/scripts/build_combined_v4.py; ver manifest.json.",
+    "new_data_split": "Por sesión (disposición de los camarones): train = 17 fotos (x6); val = 6 separados (3 fotos, 18 camarones); test = montón de 6, un camarón y bandeja vacía (5 fotos, 19 camarones).",
     "dataset_license": "MIT (shrimp-object-tracking-and-counting v4, espol-magof) + CC BY 4.0 (shrimp-nwcf0 v1, Roboflow Universe) + fotos propias del equipo",
     "train_args": {"epochs": 30, "imgsz": 640, "batch": 8, "single_cls": true, "seed": 0, "device": "0", "patience": 20, "close_mosaic": 10}
   },
   "known_metrics": {
-    "comparison": "docs/evidence/detector_v3/comparison.json",
-    "val_combined": {"images": 537, "objects": 663, "precision": 0.995, "recall": 0.971, "mAP50": 0.992, "mAP50_95": 0.940},
-    "test_old": {"images": 347, "objects": 697, "mAP50": 0.927, "mAP50_95": 0.795, "at_conf_0.5": {"precision": 0.981, "recall": 0.753, "count_exact": 0.591}},
-    "test_new": {"images": 40, "objects": 88, "mAP50": 0.915, "mAP50_95": 0.765, "at_conf_0.5_nms_0.7": {"precision": 0.875, "recall": 0.875, "count_exact": 0.65}, "at_conf_0.5_nms_0.5": {"precision": 0.975, "recall": 0.875, "count_exact": 0.75}},
-    "test_baldosa": {"images": 21, "objects": 216, "mAP50": 0.984, "mAP50_95": 0.722, "at_conf_0.5_nms_0.5": {"precision": 0.984, "recall": 0.866, "count_exact": 0.476}},
-    "negatives_eval": {"crops": 734, "crops_with_false_positive_at_conf_0.5": 24, "previous_model": 289},
+    "comparison": "docs/evidence/detector_v4/comparison.json",
+    "note": "Conf 0.5 y NMS 0.5 (los de la aplicación); TP con IoU >= 0.5.",
+    "val_combined": {"images": 540, "objects": 681, "precision": 0.997, "recall": 0.970, "mAP50": 0.984, "mAP50_95": 0.932},
+    "test_bandeja": {"images": 5, "objects": 19, "mAP50": 0.475, "at_conf_0.5": {"tp": 5, "fp": 1, "fn": 14, "count_exact": 0.4}, "anterior_tp": 0},
+    "val_bandeja": {"images": 3, "objects": 18, "at_conf_0.5": {"tp": 15, "fp": 2, "fn": 3, "count_exact": 0.667}, "anterior_tp": 0},
+    "test_baldosa": {"images": 21, "objects": 216, "at_conf_0.5": {"tp": 203, "fp": 1, "fn": 13, "count_exact": 0.571}, "anterior_tp": 187},
+    "test_new": {"images": 40, "objects": 88, "at_conf_0.5": {"tp": 80, "fp": 1, "fn": 8, "count_exact": 0.825}, "anterior_tp": 77},
+    "test_old": {"images": 347, "objects": 697, "mAP50": 0.900, "mAP50_95": 0.784, "at_conf_0.5": {"precision": 0.971, "recall": 0.713, "tp": 497, "fp": 15, "fn": 200, "count_exact": 0.565}, "anterior": {"mAP50": 0.927, "tp": 525}},
     "test_evaluated": true,
     "test_old_reproduced": {
       "report": "docs/evidence/detector_test/report.json",
       "script": "training/scripts/evaluate_test_split.py",
-      "date": "2026-11-14",
-      "note": "Mismas 347 imágenes y 697 objetos que el modelo anterior, con separación de train/val comprobada. Informe del modelo anterior: docs/evidence/detector_test/report_v2_camaron_v2_combined_dry_r2.json."
+      "date": "2026-11-15",
+      "note": "Mismas 347 imágenes y 697 objetos que los modelos anteriores (plataforma original de ESPOL). Informe de v3: docs/evidence/detector_test/report_v3_camaron_v3_baldosa.json."
     }
   },
   "limitations": [
-    "Las fotos propias son de un solo día y una sola baldosa, y test_baldosa (video 1) es de la misma sesión física que train: mide montones y video, no otras superficies, cámaras ni iluminaciones. Falta probarlo con la cámara real de trabajo.",
-    "En montones el conteo exacto aún es bajo (48 % de los fotogramas de test_baldosa): omite camarones muy tapados.",
-    "Pierde algo en camarones muy pálidos sobre fondos claros con reflejos (test_new: 2 omisiones más que el modelo anterior).",
-    "Recall en test_old a conf 0.5 de 0.75: sigue omitiendo camarones en escenas densas de la plataforma original.",
-    "No entrenado con imágenes dentro del agua; no usar en esa condición.",
-    "Las anotaciones originales omiten camarones visibles; solo una parte se corrigió en la revisión."
+    "Bandeja: con camarones separados encuentra 15 de 18; en montones encimados solo 5 de 19. Faltan fotos de bandeja (25 de un solo día, una bandeja y una mesa) y fotos tomadas con la cámara de trabajo (Camo) en su posición fija.",
+    "Camarones pálidos sobre fondo blanco: no hay ejemplos en el entrenamiento.",
+    "Plataforma original de ESPOL (test_old): bajó de mAP50 0,927 a 0,900 y ya no alcanza el 0,92 de RNF-03 en ese test; el equipo priorizó sus propias condiciones (bandeja y baldosa).",
+    "No entrenado con imágenes dentro del agua; no usar en esa condición."
   ]
 }

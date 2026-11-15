@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-14T18:04:39-05:00",
+  "generated_at": "2026-11-15T14:04:59-05:00",
   "split": "test",
-  "command": "python.exe training/scripts/evaluate_test_split.py --data-dir ../dataset",
+  "command": "python.exe training\\scripts\\evaluate_test_split.py --data-dir ..\\dataset",
   "environment": {
     "python": "3.12.10",
     "torch": "2.15.0+cu132",
@@ -10,10 +10,10 @@
   },
   "model": {
     "path": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\smart__shrimp-main\\models\\detector\\best.pt",
-    "sha256": "c431611357d665cef311e3270ae86b28beae147e98e182352e267632c7eef7ba",
+    "sha256": "491b31765e9c7614f7a477b60371d7f80bbf02927fce128ff07d2bde416361f6",
     "matches_model_info": true,
-    "trained_on": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\dataset\\shrimp_combined_v3\\data.yaml",
-    "train_run": "camaron_v3_baldosa"
+    "trained_on": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\dataset\\shrimp_combined_v4\\data.yaml",
+    "train_run": "camaron_v4_bandeja"
   },
   "dataset": {
     "data_yaml": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\dataset\\shrimp_roboflow_v4\\detect_grouped_reviewed_v1\\data.yaml",
@@ -62,22 +62,22 @@
   },
   "metrics": {
     "ultralytics": {
-      "precision": 0.927,
-      "recall": 0.856,
-      "mAP50": 0.9273,
-      "mAP50_95": 0.7945
+      "precision": 0.9536,
+      "recall": 0.7955,
+      "mAP50": 0.8998,
+      "mAP50_95": 0.7837
     },
     "at_conf_0.5": {
       "images": 347,
       "objects": 697,
-      "tp": 525,
-      "fp": 10,
-      "fn": 172,
-      "precision": 0.9813,
-      "recall": 0.7532,
-      "images_with_fp": 9,
-      "count_mae": 0.5014,
-      "count_exact": 0.5908
+      "tp": 497,
+      "fp": 15,
+      "fn": 200,
+      "precision": 0.9707,
+      "recall": 0.7131,
+      "images_with_fp": 15,
+      "count_mae": 0.5504,
+      "count_exact": 0.5648
     }
   }
 }
