@@ -68,8 +68,9 @@ def iou(a, b) -> float:
 
 
 def subset_list(dataset: Path, subset: str) -> Path:
-    """Lista de imágenes del subconjunto: <s>.txt, o v2_<s>.txt (así las guarda build_combined_v3.py)."""
-    for name in (f"{subset}.txt", f"v2_{subset}.txt"):
+    """Lista de imágenes del subconjunto: <s>.txt, v2_<s>.txt (build_combined_v3.py) o v3_<s>.txt / v3_v2_<s>.txt
+    (build_combined_v4.py)."""
+    for name in (f"{subset}.txt", f"v2_{subset}.txt", f"v3_{subset}.txt", f"v3_v2_{subset}.txt"):
         if (dataset / name).is_file():
             return dataset / name
     raise SystemExit(f"No existe {dataset / f'{subset}.txt'} ni {dataset / f'v2_{subset}.txt'}.")
