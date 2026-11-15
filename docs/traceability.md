@@ -12,7 +12,7 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 | RF-04 | Registrar análisis | Sesiones UUID, operador, lote, calibración/umbrales congelados y estados | `backend/apps/analysis/tests`; implementado |
 | RF-05 | Detectar en imagen/video | M3 recibe fotogramas; detector configurable, navegador usa cámara; recuadros en vivo con el tamaño; la imagen analizada se guarda y se muestra con recuadros en el detalle; primer plano contado con aviso en modo imagen | `vision_service/tests`, `backend/apps/results/tests` (`AnalysisSnapshotAndSummaryTests`); exactitud en test: ver RNF-03 |
 | RF-06 | Conteo con seguimiento | Tracker IoU y línea de conteo M3 | `vision_service/tests`; exactitud de conteo con dataset pendiente |
-| RF-07 | Medir longitud | Calibración píxel/cm y medición por detección | `vision_service/tests`; precisión de aceptación pendiente |
+| RF-07 | Medir longitud | Calibración píxel/cm y medición por detección | `vision_service/tests`; precisión de aceptación pendiente (fuera del alcance de esta entrega; requiere captura en planta) |
 | RF-08 | Categoría de tamaño | Bandas versionadas sin solapamiento, aplicación por longitud | `backend/apps/analysis/tests`, `vision_service/tests`; implementado |
 | RF-09 | Peso aproximado | Estimador configurable y campo nullable rotulado “estimado” | `vision_service/tests`; pesos/modelo y error de aceptación pendientes |
 | RF-10 | Condición visual | Etiquetas visuales separadas; clasificador solo con modelo configurado; advertencia visible | `vision_service/tests`; exactitud ≥0.90 pendiente de dataset etiquetado |
@@ -29,8 +29,8 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 |---|---|---|---|
 | RNF-01 | 1920×1080, p95 ≤2 s en 100 análisis | resolución/fotogramas aceptados por API | Pendiente: medición en hardware y modelo objetivo |
 | RNF-02 | vídeo promedio ≥15 FPS durante 5 min | captura del navegador limitada a 15 FPS y canal asíncrono M3 | Pendiente: prueba sostenida de extremo a extremo |
-| RNF-03 | mAP50 ≥0.92 | detector YOLO cargable mediante `DETECTOR_WEIGHTS`; evaluación reproducible en test con `training/scripts/evaluate_test_split.py` | **Cumple en la plataforma original** con el modelo actual (`camaron_v3_baldosa`, 14-11-2026): mAP50 0,927 en test (347 imágenes, separación comprobada; `docs/evidence/detector_test/report.json`; el anterior daba 0,894). En superficies secas de internet (`test_new`, 40 imágenes) mAP50 0,915 y en fotos propias en baldosa 0,984 (`docs/evidence/detector_v3/comparison.json`). Pendiente: prueba con la cámara real de trabajo y aprobación de los pesos |
-| RNF-04 | errores longitud/peso dentro de umbral con ≥30 muestras | calibración y estimador configurables; valores ausentes no se inventan | Pendiente: muestras medidas y evaluación estadística |
+| RNF-03 | mAP50 ≥0.92 | detector YOLO cargable mediante `DETECTOR_WEIGHTS`; evaluación reproducible en test con `training/scripts/evaluate_test_split.py` | **Cumple en la plataforma original** con el modelo actual (`camaron_v3_baldosa`, 14-11-2026): mAP50 0,927 en test (347 imágenes, separación comprobada; `docs/evidence/detector_test/report.json`; el anterior daba 0,894). En superficies secas de internet (`test_new`, 40 imágenes) mAP50 0,915 y en fotos propias en baldosa 0,984 (`docs/evidence/detector_v3/comparison.json`). Pendiente: mAP50 ≥ 0,92 en test_new (actual 0,915). Prueba con cámara real fuera del alcance de esta entrega; requiere captura en planta |
+| RNF-04 | errores longitud/peso dentro de umbral con ≥30 muestras | calibración y estimador configurables; valores ausentes no se inventan | Pendiente: muestras medidas y evaluación estadística (fuera del alcance de esta entrega; requiere captura en planta) |
 | RNF-05 | hash unidireccional con sal | autenticación y contraseña gestionadas por Django | Implementado por framework; revisar política de despliegue final |
 | RNF-06 | cierre tras 30 min inactivo | expiración de sesión y renovación por petición | Implementado; prueba de reloj/producción pendiente |
 | RNF-07 | disponibilidad mensual ≥95%, 07:00–19:00 | endpoint de salud Django disponible | Pendiente: operación y medición mensual |
@@ -39,7 +39,7 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 | RNF-10 | actualizar M3 sin cambiar Django | cliente M3 aislado en `backend/integrations/vision_client.py` y contrato compartido | Implementado por diseño; prueba de sustitución de servicio pendiente |
 | RNF-11 | conservar 12 meses y respaldo diario verificable | SQLite persiste en `backend/local.sqlite3`; no hay un respaldo diario automatizado en el entorno local | Pendiente: política de retención y tarea de respaldo/restauración operativa |
 | RNF-12 | bitácora inmutable de login, análisis y exportación | `AuditEvent` inmutable y eventos de autenticación/análisis/exportación | Implementado; verificación operativa pendiente |
-| RNF-13 | despliegue Linux con un comando documentado | `README.md` documenta arranque local directo en Windows | El requisito de despliegue Linux aún no está cubierto |
+| RNF-13 | despliegue Linux con un comando documentado | `docs/deployment.md` documenta el despliegue en servidor Linux con `docker compose up -d --build` (`docker-compose.yml`) y el arranque en Linux sin Docker con `scripts/setup_linux.sh`, `scripts/run_vision_linux.sh`, `scripts/run_django_linux.sh` y `scripts/create_admin_linux.sh` (PR #3) | **Cumple**: despliegue Linux documentado en `docs/deployment.md` y `scripts/*_linux.sh` (PR #3) |
 
 ## Verificación ejecutada
 
@@ -47,5 +47,5 @@ Estado de referencia: implementación de desarrollo en este repositorio. “Impl
 - Lint: `python -m ruff check backend contracts tests_integration vision_service`.
 - Migraciones/modelos: `python manage.py makemigrations --check --dry-run` y `python manage.py check` con `config.settings.testing`.
 - `node --check` para los archivos JavaScript del frontend.
-- Exactitud del detector en test (04-11-2026): `training/scripts/evaluate_test_split.py` sobre `shrimp_roboflow_v4/detect_grouped_reviewed_v1` (ver `training/README.md`).
+- Exactitud del detector en test (14-11-2026, modelo v3 `camaron_v3_baldosa`): `training/scripts/evaluate_test_split.py` sobre `shrimp_roboflow_v4/detect_grouped_reviewed_v1` (`docs/evidence/detector_test/report.json`); comparación con el modelo anterior en `test_new`, fotos propias en baldosa y recortes sin camarón en `docs/evidence/detector_v3/comparison.json` (ver `training/README.md`).
 - No se ejecutó carga, restauración de respaldo o prueba de usabilidad.
