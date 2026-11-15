@@ -7,7 +7,8 @@ import cv2
 import numpy as np
 
 from app.config import (
-    DETECTOR_WEIGHTS, COLOR_MODEL_PATH, WEIGHT_MODEL_PATH, TRACK_IOU_THRESHOLD, COUNT_LINE_RATIO, MAX_BOX_AREA_RATIO,
+    DETECTOR_WEIGHTS, DETECTOR_NMS_IOU, COLOR_MODEL_PATH, WEIGHT_MODEL_PATH, TRACK_IOU_THRESHOLD, COUNT_LINE_RATIO,
+    MAX_BOX_AREA_RATIO,
 )
 from app.pipeline.color_classifier import ColorClassifier
 from app.pipeline.counting_line import CountingLine
@@ -28,7 +29,7 @@ class FramePipeline:
     """Procesa fotogramas con detección real y seguimiento."""
 
     def __init__(self) -> None:
-        self.detector = YoloDetector(DETECTOR_WEIGHTS)
+        self.detector = YoloDetector(DETECTOR_WEIGHTS, nms_iou=DETECTOR_NMS_IOU)
         self.color = ColorClassifier(COLOR_MODEL_PATH)
         self.weight = WeightEstimator(WEIGHT_MODEL_PATH)
 

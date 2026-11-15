@@ -80,21 +80,21 @@ PowerShell, desde la raíz del proyecto (cambie `--data-dir` por la carpeta que 
     --data-dir "C:\ruta\a\dataset"
 ```
 
-Resultado del modelo actual (`best.pt`, SHA-256 `98112a05…`) obtenido el 04-11-2026 con 347 imágenes y 697 objetos:
+Resultado del modelo actual (`best.pt`, SHA-256 `c4316113…`, entrenamiento `camaron_v3_baldosa`) obtenido el 14-11-2026 con 347 imágenes y 697 objetos, junto al modelo anterior (`98112a05…`):
 
-| Métrica | Valor |
-|---|---|
-| mAP50 | 0,894 |
-| mAP50-95 | 0,785 |
-| Precision / recall (Ultralytics) | 0,937 / 0,791 |
-| Conf 0,5: precision / recall | 0,978 / 0,704 (TP 491, FP 11, FN 206) |
-| Conf 0,5: conteo exacto / error medio de conteo | 55,6 % de imágenes / 0,57 camarones por imagen |
+| Métrica | Actual | Anterior |
+|---|---|---|
+| mAP50 | 0,927 | 0,894 |
+| mAP50-95 | 0,795 | 0,785 |
+| Precision / recall (Ultralytics) | 0,927 / 0,856 | 0,937 / 0,791 |
+| Conf 0,5: precision / recall | 0,981 / 0,753 (TP 525, FP 10, FN 172) | 0,978 / 0,704 (TP 491, FP 11, FN 206) |
+| Conf 0,5: conteo exacto / error medio de conteo | 59,1 % / 0,50 camarones por imagen | 55,6 % / 0,57 |
 
-Coinciden con las cifras `test_old` de `models/detector/model_info.json`.
+Coinciden con las cifras `test_old` de `models/detector/model_info.json`. El informe del modelo anterior está en `docs/evidence/detector_test/report_v2_camaron_v2_combined_dry_r2.json`, y la comparación en las fotos propias en baldosa, superficies secas y recortes sin camarón, en `docs/evidence/detector_v3/comparison.json`.
 
 Límites:
 
-- Este test solo cubre la plataforma original (2 sesiones). El `test_new` de `shrimp_combined_v2` (40 imágenes de superficies secas) no se ha reproducido aquí, porque ese dataset no está en este equipo.
+- Este test solo cubre la plataforma original (2 sesiones). `test_new` (40 imágenes de superficies secas) y `test_baldosa` (fotos propias) se miden aparte; ver `docs/evidence/detector_v3/comparison.json`.
 - Ultralytics reescribe `labels.cache` en la carpeta del dataset y, la primera vez, descarga la fuente `Arial.ttf` a `%APPDATA%\Ultralytics`.
 
 Hallazgos, limitaciones y atributos aprovechables: [docs/dataset_shrimp_roboflow_v4.md](../docs/dataset_shrimp_roboflow_v4.md).
@@ -102,4 +102,14 @@ Origen y licencia de cada fuente: `registry/sources.yaml`.
 
 Este dataset **no** aporta longitud en cm, peso, frescura ni presentación. Además, solo muestra una plataforma oscura y seca, por lo que no hay evidencia de funcionamiento sobre otras superficies.
 
-Los scripts `build_dataset.py`, `split_dataset.py`, `export_model.py`, `s3_sync.py` y `train_color_classifier.py` siguen siendo plantillas (solo un comentario). `evaluate_detector.py`, `evaluate_test_split.py` y `build_combined_dataset.py` sí están implementados.
+Los scripts `build_dataset.py`, `split_dataset.py`, `export_model.py`, `s3_sync.py` y `train_color_classifier.py` siguen siendo plantillas (solo un comentario). `evaluate_detector.py`, `evaluate_test_split.py`, `build_combined_dataset.py` y `prelabel_images.py` sí están implementados.
+
+## Fotos nuevas sin etiquetar
+
+`prelabel_images.py` toma un ZIP o una carpeta con fotos y videos, saca un fotograma por segundo de cada video, pre-etiqueta todo con el modelo actual (a 1280 px) y deja una carpeta lista para corregir en Roboflow o LabelImg, con instrucciones en `LEEME.md`:
+
+```powershell
+& .\.venv312\Scripts\python.exe training\scripts\prelabel_images.py --zip "..\dataset\fotos.zip" --output "..\dataset\camarones_nuevos_v1"
+```
+
+Las pre-etiquetas hay que revisarlas todas antes de entrenar.

@@ -16,3 +16,7 @@ COUNT_LINE_RATIO = float(os.getenv("COUNT_LINE_RATIO", "0.5"))
 VIDEO_MIN_TRACK_HITS = int(os.getenv("VIDEO_MIN_TRACK_HITS", "3"))
 # Ningún cuadro de entrenamiento supera el 40 % del área de la imagen; mayores se rechazan.
 MAX_BOX_AREA_RATIO = float(os.getenv("MAX_BOX_AREA_RATIO", "0.45"))
+# Supresión de duplicados (NMS): dos cuadros que se solapan más que esto se consideran el mismo camarón.
+# YOLO usa 0,7; con 0,5 el modelo v3 deja de marcar dos veces el mismo camarón o uno de más entre dos pegados
+# (precisión en test_new 0,875 -> 0,975, sin perder recall; ver models/detector/model_info.json).
+DETECTOR_NMS_IOU = float(os.getenv("DETECTOR_NMS_IOU", "0.5"))

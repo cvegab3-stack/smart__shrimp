@@ -65,6 +65,26 @@ def test_detector_does_not_invent_when_weights_are_absent():
         YoloDetector().detect(np.zeros((10, 10, 3), dtype=np.uint8), 0.5)
 
 
+def test_detector_passes_confidence_and_nms_threshold_to_yolo():
+    calls = []
+
+    class FakeModel:
+        def __call__(self, image, **kwargs):
+            calls.append(kwargs)
+            return []
+
+    detector = YoloDetector("pesos.pt", nms_iou=0.5)
+    detector._model = FakeModel()
+    assert detector.detect(np.zeros((10, 10, 3), dtype=np.uint8), 0.6) == []
+    assert calls == [{"conf": 0.6, "iou": 0.5, "verbose": False}]
+
+
+def test_pipeline_uses_configured_nms_threshold():
+    from app.config import DETECTOR_NMS_IOU
+
+    assert FramePipeline().detector.nms_iou == DETECTOR_NMS_IOU
+
+
 def test_pipeline_counts_detections_without_color_model(monkeypatch):
     from types import SimpleNamespace
 
