@@ -226,3 +226,128 @@ def test_normal_size_shrimp_is_not_marked_close_up():
     pipeline = _pipeline_returning((10.0, 10.0, 40.0, 30.0))
     session = SessionRegistry().start({"analysis_id": "img2", "attempt": 1, "calibration_version": 1, "source": "imagen"})
     assert pipeline.process(session, "f1", _blank_frame())["detections"][0]["close_up"] is False
+
+
+# --- Fotograma repetido (reintento de Django tras un timeout o una conexión caída) --------------------------------
+
+def _video_session(analysis_id: str):
+    return SessionRegistry().start({"analysis_id": analysis_id, "attempt": 1, "calibration_version": 1,
+                                    "source": "video"})
+
+
+def test_repeated_frame_id_does_not_count_a_shrimp_seen_in_too_few_frames():
+    # Visto en min_track_hits - 1 fotogramas reales: no debe registrarse aunque Django reenvíe el último.
+    pipeline = _pipeline_returning((10.0, 10.0, 40.0, 30.0))
+    session = _video_session("dup-video")
+    frame = _blank_frame()
+    real = [pipeline.process(session, f"f{i}", frame) for i in range(session.min_track_hits - 1)]
+    repeated = pipeline.process(session, real[-1]["frame_id"], frame)
+
+    assert session.detections == {}
+    assert repeated["detections"] == real[-1]["detections"]
+    assert repeated["counters"] == real[-1]["counters"]
+    assert repeated["duplicate"] is True
+    assert "duplicate" not in real[-1]
+
+
+def test_repeated_frame_id_does_not_add_rejections_again():
+    from types import SimpleNamespace
+
+    pipeline = FramePipeline()
+    pipeline.detector.detect = lambda image, confidence: [
+        {"class_name": "camaron", "confidence": 0.9, "bbox": (10.0, 10.0, 40.0, 30.0)},
+        {"class_name": "no_camaron", "confidence": 0.8, "bbox": (50.0, 50.0, 60.0, 60.0)},
+    ]
+    pipeline.color = SimpleNamespace(available=False)
+    session = SessionRegistry().start({"analysis_id": "dup-img", "attempt": 1, "calibration_version": 1,
+                                       "source": "imagen"})
+    first = pipeline.process(session, "f1", _blank_frame())
+    again = pipeline.process(session, "f1", _blank_frame())
+
+    assert session.rejected_count == 1
+    assert len(session.detections) == 1
+    assert again["counters"] == first["counters"] == {"detected": 1, "counted": 0, "rejected": 1}
+
+
+def test_a_new_frame_id_is_still_processed():
+    pipeline = _pipeline_returning((10.0, 10.0, 40.0, 30.0))
+    session = _video_session("dup-new")
+    for i in range(session.min_track_hits):
+        result = pipeline.process(session, f"f{i}", _blank_frame())
+    assert len(result["detections"]) == 1 and "duplicate" not in result
+
+
+def test_concurrent_retry_of_the_same_frame_is_processed_once():
+    # Django agotó el tiempo y reenvía mientras el servicio todavía procesa el primero.
+    import threading
+    import time
+    from types import SimpleNamespace
+
+    calls = []
+
+    def slow_detect(image, confidence):
+        calls.append(1)
+        time.sleep(0.2)
+        return [{"class_name": "camaron", "confidence": 0.9, "bbox": (10.0, 10.0, 40.0, 30.0)}]
+
+    pipeline = FramePipeline()
+    pipeline.detector.detect = slow_detect
+    pipeline.color = SimpleNamespace(available=False)
+    session = _video_session("dup-concurrent")
+    frame = _blank_frame()
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(pipeline.process(session, "f0", frame)))
+               for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(calls) == 1
+    assert sorted(bool(r.get("duplicate")) for r in results) == [False, True]
+
+
+def test_duplicate_window_is_bounded():
+    from app.pipeline.frame_pipeline import FRAME_DEDUP_WINDOW
+
+    pipeline = _pipeline_returning((10.0, 10.0, 40.0, 30.0))
+    session = _video_session("dup-window")
+    for i in range(FRAME_DEDUP_WINDOW + 5):
+        pipeline.process(session, f"f{i}", _blank_frame())
+    assert len(session.recent_frames) == FRAME_DEDUP_WINDOW
+    assert "f0" not in session.recent_frames and f"f{FRAME_DEDUP_WINDOW + 4}" in session.recent_frames
+
+
+def test_session_summary_is_the_same_with_or_without_a_repeated_frame(monkeypatch):
+    """Por las rutas de la API: dos sesiones de video iguales, una con el último fotograma reenviado."""
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    from app.api.frame_routes import FrameInput, process_frame
+    from app.pipeline.frame_pipeline import frame_pipeline
+    from app.session.session_registry import session_registry
+
+    monkeypatch.setattr(frame_pipeline.detector, "detect", lambda image, confidence: [
+        {"class_name": "camaron", "confidence": 0.9, "bbox": (10.0, 10.0, 40.0, 30.0)},
+        {"class_name": "no_camaron", "confidence": 0.8, "bbox": (60.0, 60.0, 70.0, 70.0)},
+    ])
+    monkeypatch.setattr(frame_pipeline, "color", SimpleNamespace(available=False))
+    session_registry.reset()
+    frame = _blank_frame()
+
+    def run(analysis_id: str, frame_ids: list[str]) -> dict:
+        start_session(SessionStart(analysis_id=analysis_id, attempt=1, calibration_version=1, source="video",
+                                   detection_confidence=0.5, visual_condition_confidence=0.5))
+        for frame_id in frame_ids:
+            process_frame(FrameInput(analysis_id=analysis_id, attempt=1, frame_id=frame_id,
+                                     captured_at=datetime.now(timezone.utc), image_base64=frame,
+                                     calibration_version=1))
+        summary = session_summary(SummaryRequest(analysis_id=analysis_id, attempt=1))
+        return {key: summary[key] for key in ("shrimp_count", "rejected_count", "totals")}
+
+    hits = 3  # VIDEO_MIN_TRACK_HITS por defecto
+    once = run("sin-reenvio", [f"f{i}" for i in range(hits - 1)])
+    retried = run("con-reenvio", [f"f{i}" for i in range(hits - 1)] + [f"f{hits - 2}"])
+    assert retried == once == {"shrimp_count": 0, "rejected_count": hits - 1,
+                               "totals": {"integrity": {}, "presentation": {}, "visual_condition": {},
+                                          "size_category": {}, "rejected": hits - 1}}

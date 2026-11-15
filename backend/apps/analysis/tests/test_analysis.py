@@ -1,5 +1,7 @@
 """Pruebas de calibración versionada y ciclo de vida M2."""
 
+import os
+import threading
 from unittest.mock import patch
 
 import requests
@@ -14,7 +16,7 @@ from apps.analysis.services.frame_relay_service import relay_frame
 from apps.analysis.services.session_service import retry_analysis, start_analysis
 from apps.analysis.services.threshold_service import create_threshold_profile
 from integrations.vision_client import VisionServiceError
-from integrations.vision_client import process_frame
+from integrations.vision_client import health, process_frame
 from shrimp_contracts.token_claims import verify_service_token
 
 
@@ -105,7 +107,7 @@ class AnalysisServiceTests(TestCase):
 class VisionClientTests(TestCase):
     """Confirma timeout, reintento y token de servicio en el cliente único de M3."""
 
-    @patch("integrations.vision_client.requests.post")
+    @patch("integrations.vision_client.requests.Session.post")
     def test_timeout_retries_once_then_sends_signed_service_token(self, post):
         response = post.return_value
         response.status_code = 200
@@ -118,11 +120,37 @@ class VisionClientTests(TestCase):
         token = post.call_args.kwargs["headers"]["Authorization"].removeprefix("Bearer ")
         self.assertEqual(verify_service_token(token, "integration-secret").subject, "django")
 
-    @patch("integrations.vision_client.requests.post", side_effect=requests.Timeout("service unavailable"))
+    @patch("integrations.vision_client.requests.Session.post", side_effect=requests.Timeout("service unavailable"))
     def test_timeout_exhaustion_is_reported_as_service_error(self, post):
         with self.assertRaises(VisionServiceError):
             process_frame({"frame_id": "f1"})
         self.assertEqual(post.call_count, 2)
+
+    def test_connection_is_reused_within_a_thread_but_not_shared_between_threads(self):
+        from integrations import vision_client
+
+        first = vision_client._session()
+        self.assertIs(vision_client._session(), first)  # misma conexión para el fotograma siguiente
+        other = []
+        thread = threading.Thread(target=lambda: other.append(vision_client._session()))
+        thread.start()
+        thread.join()
+        self.assertIsNot(other[0], first)  # otro hilo, otra sesión
+
+    def test_a_forked_process_gets_its_own_session(self):
+        from integrations import vision_client
+
+        parent = vision_client._session()
+        with patch("integrations.vision_client.os.getpid", return_value=os.getpid() + 1):
+            child = vision_client._session()
+        self.assertIsNot(child, parent)
+
+    @patch("integrations.vision_client.requests.Session.get")
+    def test_health_uses_the_shared_session(self, get):
+        get.return_value.status_code = 200
+        self.assertTrue(health())
+        get.return_value.status_code = 503
+        self.assertFalse(health())
 
 
 class CalibrationRangeValidationTests(TestCase):

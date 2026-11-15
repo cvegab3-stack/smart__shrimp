@@ -69,7 +69,7 @@ class VisionClientClassificationTests(TestCase):
     """Solo se repite lo que puede salir bien al repetirlo; cada fallo sale con su código."""
 
     def call(self, *responses):
-        with patch("integrations.vision_client.requests.post", side_effect=list(responses)) as post:
+        with patch("integrations.vision_client.requests.Session.post", side_effect=list(responses)) as post:
             try:
                 return process_frame({"frame_id": "f"}), post.call_count
             except VisionServiceError as exc:
