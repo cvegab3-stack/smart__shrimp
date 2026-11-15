@@ -30,4 +30,7 @@ USER smartshrimp
 EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5)"]
-CMD ["uvicorn", "app.main:app", "--app-dir", "/app/vision_service", "--host", "0.0.0.0", "--port", "8001"]
+# --timeout-keep-alive 30: Django reutiliza la conexión (requests.Session); con los 5 s por defecto de uvicorn,
+# una pausa corta entre análisis la cerraría y la siguiente petición tendría que reintentarse.
+CMD ["uvicorn", "app.main:app", "--app-dir", "/app/vision_service", "--host", "0.0.0.0", "--port", "8001", \
+     "--timeout-keep-alive", "30"]

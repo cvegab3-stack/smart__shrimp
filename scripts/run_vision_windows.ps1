@@ -30,7 +30,9 @@ $visionDir = Join-Path $projectRoot "vision_service"
 $contractsDir = Join-Path $projectRoot "contracts"
 $env:PYTHONPATH = $visionDir + ";" + $contractsDir
 
-$arguments = @("-m", "uvicorn", "app.main:app", "--app-dir", $visionDir, "--host", "127.0.0.1", "--port", $Port)
+# Keep-alive de 30 s: Django reutiliza la conexión con el servicio (ver vision_service/Dockerfile).
+$arguments = @("-m", "uvicorn", "app.main:app", "--app-dir", $visionDir, "--host", "127.0.0.1", "--port", $Port,
+               "--timeout-keep-alive", "30")
 if (-not $NoReload) {
     $arguments += @("--reload", "--reload-dir", (Join-Path $visionDir "app"), "--reload-dir", $contractsDir)
     Write-Host "Recarga automática activada: al cambiar el código del servicio de visión se reinicia solo."

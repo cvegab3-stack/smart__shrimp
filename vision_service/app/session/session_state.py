@@ -1,5 +1,7 @@
 """Estado efímero de una sesión de visión dentro del proceso M3."""
 
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -30,3 +32,8 @@ class VisionSession:
     tracker: IoUTracker | None = None
     counting_line: CountingLine | None = None
     voting: FrameVoting = field(default_factory=FrameVoting)
+    # Respuestas de los últimos fotogramas por frame_id: si Django reenvía uno (reintento tras un timeout o una
+    # conexión caída), se devuelve la misma respuesta sin volver a contarlo. Ver FramePipeline.process.
+    recent_frames: OrderedDict[str, dict[str, Any]] = field(default_factory=OrderedDict)
+    # Un fotograma a la vez por sesión: un reenvío que llega mientras se procesa el original espera su respuesta.
+    lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)

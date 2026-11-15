@@ -18,8 +18,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
-import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -195,31 +193,34 @@ def load_video_frames(video: Path, size: tuple[int, int] | None, quality: int, m
 
 
 class VisionClient:
-    """Cliente mínimo de la API de M3 (sin dependencias), con el mismo costo por petición que Django.
+    """Cliente mínimo de la API de M3 con el mismo costo por petición que Django.
 
-    backend/integrations/vision_client.py usa requests.post sin Session: un token y una conexión TCP nuevos por
-    petición. Aquí también (urllib abre una conexión por petición); si Django pasa a reutilizar la conexión, este
-    cliente debe hacer lo mismo para que la medida siga siendo comparable.
+    Igual que backend/integrations/vision_client.py: requests con una Session que reutiliza la conexión TCP y un
+    token nuevo por petición. Si Django cambia su forma de conectarse, este cliente debe seguirla para que la
+    medida siga siendo comparable. (requests llega al entorno de vision_service como dependencia de ultralytics.)
     """
 
     def __init__(self, base_url: str, secret: str, timeout: float = 30.0) -> None:
+        import requests
+
         if not secret:
             raise SystemExit("Falta la clave: use --secret o la variable VISION_SERVICE_TOKEN_SECRET.")
         self.base_url = base_url.rstrip("/")
         self.secret = secret
         self.timeout = timeout
+        self.session = requests.Session()
+
+    def close(self) -> None:
+        self.session.close()
 
     def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
-        data = json.dumps(payload, default=str).encode() if payload is not None else None
-        request = urllib.request.Request(self.base_url + path, data=data, method=method, headers={
-            "Authorization": "Bearer " + issue_service_token(self.secret, "benchmark"),
-            "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                return json.loads(response.read() or b"{}")
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode(errors="replace")[:300]
-            raise RuntimeError(f"{method} {path}: HTTP {exc.code} {body}") from exc
+        # requests.RequestException hereda de OSError: quien llama trata red caída y HTTP >= 400 por igual.
+        response = self.session.request(
+            method, self.base_url + path, json=payload, timeout=self.timeout,
+            headers={"Authorization": "Bearer " + issue_service_token(self.secret, "benchmark")})
+        if response.status_code >= 400:
+            raise RuntimeError(f"{method} {path}: HTTP {response.status_code} {response.text[:300]}")
+        return response.json() if response.content else {}
 
     def health(self) -> dict:
         return self._request("GET", "/v1/health")
@@ -245,8 +246,9 @@ def new_analysis_id(prefix: str) -> str:
 
 
 def service_command(port: int) -> list[str]:
+    """Mismo arranque que el despliegue (vision_service/Dockerfile), incluido el keep-alive de 30 s."""
     return [sys.executable, "-m", "uvicorn", "app.main:app", "--app-dir", str(REPO_ROOT / "vision_service"),
-            "--host", "127.0.0.1", "--port", str(port)]
+            "--host", "127.0.0.1", "--port", str(port), "--timeout-keep-alive", "30"]
 
 
 def service_env(weights: Path, secret: str) -> dict:
@@ -279,6 +281,7 @@ def running_service(port: int, weights: Path, timeout: float = 300.0):
                 time.sleep(1)
         yield client
     finally:
+        client.close()
         process.terminate()
         try:
             process.wait(timeout=15)
@@ -316,7 +319,10 @@ def service_client(args):
     else:
         client = VisionClient(args.url, args.secret)
         local = args.url.split("//", 1)[-1].split(":")[0].split("/")[0] in {"127.0.0.1", "localhost"}
-        yield client, args.url, local
+        try:
+            yield client, args.url, local
+        finally:
+            client.close()
 
 
 def base_report(kind: str, requirement: dict, args, service_url: str, service_is_local: bool, frames_info: dict) -> dict:

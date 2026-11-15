@@ -28,7 +28,8 @@ py="$root/.venv312/bin/python"
 export DETECTOR_WEIGHTS="$weights"
 export PYTHONPATH="$root/vision_service:$root/contracts"
 
-args=(-m uvicorn app.main:app --app-dir "$root/vision_service" --host 127.0.0.1 --port "$port")
+# Keep-alive de 30 s: Django reutiliza la conexión con el servicio (ver vision_service/Dockerfile).
+args=(-m uvicorn app.main:app --app-dir "$root/vision_service" --host 127.0.0.1 --port "$port" --timeout-keep-alive 30)
 if [ "$reload" = "1" ]; then
     args+=(--reload --reload-dir "$root/vision_service/app" --reload-dir "$root/contracts")
     echo "Recarga automática activada: al cambiar el código del servicio de visión se reinicia solo."

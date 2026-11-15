@@ -5,6 +5,8 @@ puede salir bien al repetirlo (red caída, tiempo agotado, error 5xx). Un 4xx no
 volvería a fallar igual.
 """
 
+import os
+import threading
 import time
 from typing import Any
 
@@ -12,6 +14,22 @@ import requests
 from django.conf import settings
 
 from shrimp_contracts.token_claims import issue_service_token
+
+_local = threading.local()
+
+
+def _session() -> requests.Session:
+    """Sesión HTTP de este hilo: reutiliza la conexión TCP con M3 entre peticiones (en video, una por fotograma).
+
+    requests.Session no garantiza ser segura si varios hilos la usan a la vez, así que cada hilo tiene la suya
+    (runserver atiende cada petición en un hilo). Tras un fork (procesos de gunicorn) se crea otra, para no
+    compartir sockets con el proceso padre.
+    """
+    session = getattr(_local, "session", None)
+    if session is None or _local.pid != os.getpid():
+        session = requests.Session()
+        _local.session, _local.pid = session, os.getpid()
+    return session
 
 
 class VisionServiceError(RuntimeError):
@@ -56,7 +74,7 @@ def _post(path: str, payload: dict[str, Any], *, timeout: float | None = None,
     last_error: VisionServiceError | None = None
     for retry in range(retries + 1):
         try:
-            response = requests.post(
+            response = _session().post(
                 f"{settings.VISION_SERVICE_URL.rstrip('/')}{path}",
                 json=payload,
                 headers={"Authorization": f"Bearer {token}"},
@@ -107,7 +125,7 @@ def health(timeout: float = 2.0) -> bool:
     if not secret:
         return False
     try:
-        response = requests.get(
+        response = _session().get(
             f"{settings.VISION_SERVICE_URL.rstrip('/')}/v1/health",
             headers={"Authorization": f"Bearer {issue_service_token(secret, 'django')}"}, timeout=timeout,
         )

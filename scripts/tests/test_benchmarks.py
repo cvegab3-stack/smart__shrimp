@@ -35,13 +35,21 @@ class FakeVision:
         self.sessions: dict[str, dict] = {}
         self.frames: list[dict] = []
         self.summaries: list[str] = []
+        self.client_ports: list[int] = []  # puerto de origen de cada petición: uno solo = conexión reutilizada
         self.fail_frames = False
 
 
 def make_handler(state: FakeVision):
     class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"  # admite keep-alive, como uvicorn
+
         def log_message(self, *args):  # silencio en la salida de pytest
             pass
+
+        def parse_request(self):
+            ok = super().parse_request()
+            state.client_ports.append(self.client_address[1])
+            return ok
 
         def _reply(self, code: int, body: dict):
             data = json.dumps(body).encode()
@@ -149,14 +157,37 @@ def test_model_summary_reports_sha_and_missing_file(weights: Path, tmp_path: Pat
 
 
 def test_client_rejected_with_wrong_secret(fake_service):
-    with pytest.raises(RuntimeError, match="HTTP 401"):
-        bc.VisionClient(fake_service.url, "otra-clave").health()
-    assert bc.VisionClient(fake_service.url, SECRET).health() == {"status": "ok"}
+    wrong, right = bc.VisionClient(fake_service.url, "otra-clave"), bc.VisionClient(fake_service.url, SECRET)
+    try:
+        with pytest.raises(RuntimeError, match="HTTP 401"):
+            wrong.health()
+        assert right.health() == {"status": "ok"}
+    finally:
+        wrong.close()
+        right.close()
+
+
+def test_client_reuses_one_connection_like_django(fake_service, weights: Path, tmp_path: Path):
+    benchmark_latencia.main([*common_args(fake_service, weights, tmp_path / "evidencia"), "--images",
+                             str(write_images(tmp_path / "frames", 1)), "--n", "5", "--warmup", "1"])
+    assert len(fake_service.client_ports) == 18  # 6 análisis × (sesión + fotograma + resumen)
+    assert len(set(fake_service.client_ports)) == 1
+
+
+def test_connection_error_is_an_oserror_for_the_benchmarks():
+    client = bc.VisionClient("http://127.0.0.1:9", SECRET, timeout=2)  # puerto sin servicio
+    try:
+        with pytest.raises(OSError):
+            client.health()
+    finally:
+        client.close()
 
 
 def test_service_command_and_env_point_to_vision_service(weights: Path):
     command = bc.service_command(8099)
-    assert command[1:4] == ["-m", "uvicorn", "app.main:app"] and command[-1] == "8099"
+    assert command[1:4] == ["-m", "uvicorn", "app.main:app"]
+    assert command[command.index("--port") + 1] == "8099"
+    assert command[command.index("--timeout-keep-alive") + 1] == "30"  # igual que vision_service/Dockerfile
     env = bc.service_env(weights, "s")
     assert env["DETECTOR_WEIGHTS"] == str(weights) and env["VISION_SERVICE_TOKEN_SECRET"] == "s"
     assert "contracts" in env["PYTHONPATH"] and "vision_service" in env["PYTHONPATH"]

@@ -20,6 +20,10 @@ from shrimp_contracts.catalog import classes_for
 
 logger = logging.getLogger("uvicorn.error")
 
+# Fotogramas recientes cuya respuesta se guarda por sesión para reconocer reenvíos. Django reenvía en segundos
+# (timeout + reintento); 256 fotogramas son ~17 s de video a 15 FPS, con memoria acotada.
+FRAME_DEDUP_WINDOW = 256
+
 
 def _box_area(bbox) -> float:
     return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
@@ -46,7 +50,27 @@ class FramePipeline:
         return image
 
     def process(self, session, frame_id: str, image_base64: str) -> dict:
-        """Devuelve detecciones y contadores del fotograma."""
+        """Devuelve detecciones y contadores del fotograma; un frame_id repetido no se vuelve a procesar.
+
+        Django repite la misma petición si se agota el tiempo o se cae la conexión, y el servicio puede haber
+        procesado ya el original. Procesarlo otra vez sumaría un acierto más a cada track (en video puede registrar
+        un camarón visto en menos fotogramas de los exigidos), votos repetidos y descartes dobles. Se devuelve la
+        respuesta guardada, marcada con duplicate=True. Un fotograma que falló (p. ej. imagen ilegible) no se
+        guarda: su reintento se procesa normalmente.
+        """
+        with session.lock:
+            cached = session.recent_frames.get(frame_id)
+            if cached is not None:
+                logger.info("Fotograma repetido ignorado analysis_id=%s attempt=%s frame_id=%s",
+                            session.analysis_id, session.attempt, frame_id)
+                return {**cached, "duplicate": True}
+            result = self._process(session, frame_id, image_base64)
+            session.recent_frames[frame_id] = result
+            while len(session.recent_frames) > FRAME_DEDUP_WINDOW:
+                session.recent_frames.popitem(last=False)
+            return result
+
+    def _process(self, session, frame_id: str, image_base64: str) -> dict:
         image = self.decode_image(image_base64)
         raw_detections = self.detector.detect(image, session.detection_confidence)
         height, width = image.shape[:2]
