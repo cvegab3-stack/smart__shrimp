@@ -44,16 +44,17 @@
                         : `Distancia: ${distance} px. Pulsa «Usar esta medida». Un tercer clic empieza de nuevo.`); }
     draw(); });
 
-  async function listCameras() { try { const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
-    const selected = cameraSelect.value; cameraSelect.replaceChildren(new Option("Cámara predeterminada", ""));
-    devices.forEach((device, index) => cameraSelect.append(new Option(device.label || `Cámara ${index + 1}`, device.deviceId)));
-    cameraSelect.value = selected; } catch { /* sin permiso aún: queda la predeterminada */ } }
+  // Misma lista y misma cámara guardada que el análisis en vivo (common.js): la regla se mide con la cámara de los análisis.
+  window.SmartShrimp.watchCameraSelect(cameraSelect);
+  const listCameras = (options) => window.SmartShrimp.fillCameraSelect(cameraSelect, options);
 
   $("#measure-start-camera").addEventListener("click", async () => { stopCamera();
     if (!navigator.mediaDevices?.getUserMedia) { say("Este navegador no permite usar la cámara. Sube una foto."); return; }
-    try { const deviceId = cameraSelect.value;
-      stream = await navigator.mediaDevices.getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId } } : true, audio: false });
+    try { const constraints = window.SmartShrimp.cameraConstraint(cameraSelect);
+      stream = await navigator.mediaDevices.getUserMedia({ video: Object.keys(constraints).length ? constraints : true, audio: false });
       video.srcObject = stream; video.hidden = false; captureButton.hidden = false; await video.play(); await listCameras();
+      const opened = stream.getVideoTracks()[0]?.getSettings?.().deviceId;  // muestra qué cámara quedó abierta
+      if (opened && [...cameraSelect.options].some((o) => o.value === opened)) cameraSelect.value = opened;
       say("Encuadra la regla como en los análisis y pulsa «Tomar foto»."); }
     catch (error) { stopCamera(); say(`${window.SmartShrimp.cameraErrorText(error)} También puedes subir una foto.`); } });
 
@@ -82,7 +83,7 @@
 
   function close() { stopCamera(); panel.hidden = true; openButton.hidden = false; }
   $("#measure-close").addEventListener("click", close);
-  openButton.addEventListener("click", () => { panel.hidden = false; openButton.hidden = true; say("Elige cómo obtener la imagen de la regla."); listCameras(); });
+  openButton.addEventListener("click", () => { panel.hidden = false; openButton.hidden = true; say("Elige cómo obtener la imagen de la regla."); listCameras({ askPermission: true }); });
   window.addEventListener("resize", draw);
   window.addEventListener("pagehide", stopCamera);
   openButton.hidden = false;  // solo se ofrece si este script cargó

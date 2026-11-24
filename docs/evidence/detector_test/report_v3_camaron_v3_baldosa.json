@@ -1,0 +1,83 @@
+{
+  "generated_at": "2026-11-14T18:04:39-05:00",
+  "split": "test",
+  "command": "python.exe training/scripts/evaluate_test_split.py --data-dir ../dataset",
+  "environment": {
+    "python": "3.12.10",
+    "torch": "2.15.0+cu132",
+    "ultralytics": "8.4.201",
+    "device": "NVIDIA GeForce RTX 3050 Laptop GPU"
+  },
+  "model": {
+    "path": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\smart__shrimp-main\\models\\detector\\best.pt",
+    "sha256": "c431611357d665cef311e3270ae86b28beae147e98e182352e267632c7eef7ba",
+    "matches_model_info": true,
+    "trained_on": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\dataset\\shrimp_combined_v3\\data.yaml",
+    "train_run": "camaron_v3_baldosa"
+  },
+  "dataset": {
+    "data_yaml": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\dataset\\shrimp_roboflow_v4\\detect_grouped_reviewed_v1\\data.yaml",
+    "images": 347,
+    "objects": 697,
+    "test_fingerprint_sha256": "f06b03347f87a108251dff82af8aca18d92cfea9b23a2e8ad0c1e26a417c0b49"
+  },
+  "separation_check": {
+    "ok": true,
+    "audit_csv": "C:\\Users\\JOHN\\Downloads\\smart shirimp\\dataset\\shrimp_roboflow_v4\\audit\\images.csv",
+    "images": {
+      "train": 6047,
+      "val": 501,
+      "test": 347
+    },
+    "test_groups": [
+      "g07_20230311_143134",
+      "g12_20230314_170603"
+    ],
+    "shared_counts": {
+      "test_train_name": 0,
+      "test_train_source": 0,
+      "test_train_sha256": 0,
+      "test_train_group": 0,
+      "test_train_video": 0,
+      "test_val_name": 0,
+      "test_val_source": 0,
+      "test_val_sha256": 0,
+      "test_val_group": 0,
+      "test_val_video": 0
+    },
+    "problems": []
+  },
+  "settings": {
+    "ultralytics_val": {
+      "conf": 0.001,
+      "iou": 0.7,
+      "imgsz": 640,
+      "single_cls": true
+    },
+    "operating_point": {
+      "conf": 0.5,
+      "iou_match": 0.5,
+      "imgsz": 640
+    }
+  },
+  "metrics": {
+    "ultralytics": {
+      "precision": 0.927,
+      "recall": 0.856,
+      "mAP50": 0.9273,
+      "mAP50_95": 0.7945
+    },
+    "at_conf_0.5": {
+      "images": 347,
+      "objects": 697,
+      "tp": 525,
+      "fp": 10,
+      "fn": 172,
+      "precision": 0.9813,
+      "recall": 0.7532,
+      "images_with_fp": 9,
+      "count_mae": 0.5014,
+      "count_exact": 0.5908
+    }
+  }
+}
