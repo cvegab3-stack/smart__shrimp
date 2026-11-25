@@ -16,9 +16,10 @@
     <article class="kpi"><div class="kpi-icon">⌖</div><label>Calibración aplicada</label><strong>v{{ analysis.calibration.version }}</strong><small>Congelada al iniciar el análisis</small></article>
     <article class="kpi"><div class="kpi-icon">↻</div><label>Intento</label><strong>{{ analysis.current_attempt }}</strong><small>Último procesamiento</small></article>
   </section>
+  {% if summary.lot %}<section class="card lot-info"><div class="card-head"><div><h2>Datos del lote</h2><p>Registrados por el operador antes del conteo.</p></div></div><dl class="detail-grid">{% for item in summary.lot %}<div class="detail-item"><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></div>{% endfor %}</dl></section>{% endif %}
   <section class="grid result-grid">
-    <article class="card"><div class="card-head"><div><h2>Imagen analizada</h2><p>{% if analysis.source == 'video' %}Último fotograma con camarones de la grabación.{% else %}La imagen adjuntada, con un recuadro por camarón.{% endif %}</p></div></div>
-      {% if summary.snapshot_url %}<figure class="snapshot" data-boxes-id="snapshot-boxes"{% if summary.calibration_resolution %} data-calibration-width="{{ analysis.calibration.image_width }}" data-calibration-height="{{ analysis.calibration.image_height }}"{% endif %}><img src="{{ summary.snapshot_url }}" alt="Imagen analizada con un recuadro sobre cada camarón detectado"></figure>{{ summary.boxes|json_script:"snapshot-boxes" }}
+    <article class="card"><div class="card-head"><div>{% if analysis.source == 'video' %}<h2>Conteo por tamaño</h2><p>Camarones contados al cruzar la línea.</p>{% else %}<h2>Imagen analizada</h2><p>La imagen adjuntada, con un recuadro por camarón.</p>{% endif %}</div></div>
+      {% if analysis.source == 'video' %}{% elif summary.snapshot_url %}<figure class="snapshot" data-boxes-id="snapshot-boxes"{% if summary.calibration_resolution %} data-calibration-width="{{ analysis.calibration.image_width }}" data-calibration-height="{{ analysis.calibration.image_height }}"{% endif %}><img src="{{ summary.snapshot_url }}" alt="Imagen analizada con un recuadro sobre cada camarón detectado"></figure>{{ summary.boxes|json_script:"snapshot-boxes" }}
       {% else %}<div class="empty"><div><div class="empty-icon">◖</div><h2>Sin imagen guardada</h2><p>Los análisis anteriores a esta versión no guardaban la imagen.</p></div></div>{% endif %}
       {% if summary.total %}<div class="size-counts">{% for item in summary.counts %}<span class="size-chip size-{{ item.key }}"><strong>{{ item.count }}</strong><span>{{ item.name }}</span></span>{% endfor %}</div>
       {% else %}<div class="alert alert-info result-empty">{% if summary.rejected %}No se contó ningún camarón.{% else %}No se detectó ningún camarón. Comprueba que se vean bien y que la imagen no esté borrosa ni oscura.{% endif %}</div>{% endif %}
@@ -26,8 +27,16 @@
       {% if summary.rejected_text %}<p class="result-note">{{ summary.rejected_text }}</p>{% endif %}
     </article>
     <article class="card"><div class="card-head"><div><h2>Calibración</h2><p>Referencia conservada con el lote.</p></div></div><div class="metric-list"><div class="metric-row"><span>Longitud de referencia</span><strong>{{ analysis.calibration.reference_length_cm }} cm</strong></div><div class="metric-row"><span>Referencia en píxeles</span><strong>{{ analysis.calibration.reference_pixels }} px</strong></div><div class="metric-row"><span>Medida en una imagen de</span><strong>{{ analysis.calibration.resolution|default:"No registrada" }}</strong></div><div class="metric-row"><span>Detecciones descartadas</span><strong>{{ analysis.rejected_count }}</strong></div></div><div class="notice"><strong>Información importante:</strong> peso y longitud son valores estimados. La condición visual no reemplaza análisis microbiológicos, químicos ni sanitarios.</div></article>
-    <article class="card span-2"><div class="card-head"><div><h2>Detalle por camarón</h2><p>El número coincide con el del recuadro en la imagen.</p></div></div>
-      {% if summary.rows %}<div class="table-wrap"><table class="data-table result-table"><thead><tr><th>Camarón</th><th>Longitud</th><th>Tamaño</th>{% if summary.show_condition %}<th>Condición visual</th>{% endif %}{% if summary.show_weight %}<th>Peso estimado</th>{% endif %}</tr></thead><tbody>
+    <article class="card span-2"><div class="card-head"><div>{% if analysis.source == 'video' %}<h2>Clasificación por talla</h2><p>Camarones del lote agrupados por los rangos de longitud de la calibración v{{ analysis.calibration.version }}.</p>{% else %}<h2>Detalle por camarón</h2><p>El número coincide con el del recuadro en la imagen.</p>{% endif %}</div></div>
+      {% if analysis.source == 'video' and summary.rows %}<div class="size-classes">{% for item in summary.size_classes %}<section class="size-class size-{{ item.key }}" aria-label="{{ item.name }}">
+        <header><span class="size-class-name">{{ item.name }}</span><span class="size-class-range">{{ item.range }}</span></header>
+        <div class="size-class-count"><strong>{{ item.count }}</strong><span>{% if item.count == 1 %}camarón{% else %}camarones{% endif %}</span></div>
+        <div class="size-class-bar" role="img" aria-label="{{ item.percent }} % del lote"><span style="width: {{ item.percent }}%"></span></div>
+        <p class="size-class-percent">{{ item.percent }} % del lote</p>
+        <dl><div><dt>Promedio</dt><dd>{{ item.length_avg|default:"—" }}</dd></div><div><dt>Mínimo</dt><dd>{{ item.length_min|default:"—" }}</dd></div><div><dt>Máximo</dt><dd>{{ item.length_max|default:"—" }}</dd></div></dl>
+      </section>{% endfor %}</div>
+      <p class="size-class-total">Total: <strong>{{ summary.total }}</strong> camarones{% if summary.length_avg %} · longitud promedio {{ summary.length_avg }} (de {{ summary.length_min }} a {{ summary.length_max }}){% endif %}</p>
+      {% elif summary.rows %}<div class="table-wrap"><table class="data-table result-table"><thead><tr><th>Camarón</th><th>Longitud</th><th>Tamaño</th>{% if summary.show_condition %}<th>Condición visual</th>{% endif %}{% if summary.show_weight %}<th>Peso estimado</th>{% endif %}</tr></thead><tbody>
       {% for row in summary.rows %}<tr><td><strong>Camarón {{ row.number }}</strong></td><td>{{ row.length }}{% if row.close_up %} <small class="result-note">(primer plano, poco fiable)</small>{% endif %}</td><td><span class="size-chip size-{{ row.size_key }}">{{ row.size }}</span></td>{% if summary.show_condition %}<td>{{ row.condition }}</td>{% endif %}{% if summary.show_weight %}<td>{{ row.weight }}</td>{% endif %}</tr>{% endfor %}
       </tbody></table></div>
       {% if not summary.show_condition or not summary.show_weight %}<p class="result-note">Condición visual y peso: aún no disponibles (el sistema todavía no tiene esos modelos entrenados).</p>{% endif %}
@@ -39,5 +48,5 @@
     </article>{% endif %}
   </section>
 </main>
-<script src="{% static 'js/results_panel.js' %}?v=20261106b" defer></script>
+<script src="{% static 'js/results_panel.js' %}?v=20261124b" defer></script>
 {% endblock %}

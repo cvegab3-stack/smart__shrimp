@@ -2,7 +2,7 @@
 
 import base64
 import tempfile
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from django.test import Client, TestCase, override_settings
@@ -266,3 +266,68 @@ class CloseUpAndEmptyResultTests(AnalysisSnapshotAndSummaryTests):
         html = self.page(analysis)
         self.assertIn('data-calibration-width="1280" data-calibration-height="720"', html)
         self.assertIn("1280 × 720 px", html)
+
+
+class LotPdfTests(TestCase):
+    """Informe PDF de un lote contado con cámara: datos del lote, resumen y detalle; ninguna foto."""
+
+    def setUp(self):
+        from apps.analysis.services.calibration_service import create_calibration
+        from apps.analysis.services.threshold_service import create_threshold_profile
+        self.operator = User.objects.create_user("op", password="password", role=User.Role.OPERATOR)
+        admin = User.objects.create_user("adm", password="password", role=User.Role.ADMINISTRATOR)
+        create_calibration(reference_length_cm=10, reference_pixels=400, actor=admin, size_ranges={
+            "pequeno": {"min_cm": None, "max_cm": 8}, "mediano": {"min_cm": 8, "max_cm": 13},
+            "grande": {"min_cm": 13, "max_cm": None}})
+        create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
+        with patch("apps.analysis.services.session_service.vision_client.start_session", return_value={"ok": True}):
+            self.analysis = start_analysis(batch_code="L-PDF-1", source="video", operator=self.operator,
+                                           lot_date=date(2026, 11, 24), lot_weight_kg=2, supplier="Camaronera Sur")
+        for number, length, size in ((1, 7.5, "pequeno"), (2, 10.2, "mediano")):
+            ShrimpRecord.objects.create(analysis=self.analysis, attempt=1, track_id=f"track-{number}",
+                                        visual_condition="no_concluyente", length_cm=length, size_category=size)
+        self.analysis.status = AnalysisSession.Status.FINISHED
+        self.analysis.shrimp_count = 2
+        self.analysis.save()
+
+    def test_pdf_has_lot_data_summary_and_table_but_no_image(self):
+        from reportlab import rl_config
+        from apps.results.services.pdf_exporter import export_analysis_pdf
+        with patch.object(rl_config, "pageCompression", 0):  # sin comprimir, para poder leer el texto
+            pdf = export_analysis_pdf(self.analysis)
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertNotIn(b"/Subtype /Image", pdf)  # ninguna foto incrustada
+        text = pdf.decode("latin-1")
+        for expected in ("Informe del lote L-PDF-1", "L-PDF-1", "Datos del lote", "Camaronera Sur", "CAMARONES POR KILO",
+                         r"Clasificaci\363n por talla", "Mediano", r"8 \226 13 cm", "10,2 cm", "50 %",
+                         r"Revisado por \(supervisor\)", "P\\341gina 1 de 1",  # á ñ ó – → \341 \361 \363 \226
+                         "Revisar: el peso promedio"):  # 2 kg para 2 camarones: 1000 g cada uno, no es creíble
+            self.assertIn(expected, text)
+        self.assertNotIn("track-", text)
+        self.assertNotIn(r"Detalle por camar\363n", text)  # sin listado uno por uno: no crece con el lote
+
+    def test_csv_opens_in_spanish_excel_with_sections_and_readable_names(self):
+        from apps.results.services.csv_exporter import export_analysis_csv
+        text = export_analysis_csv(self.analysis).decode("utf-8-sig")
+        lines = text.splitlines()
+        self.assertEqual(lines[0], "Informe del lote L-PDF-1")
+        for expected in ("DATOS DEL LOTE", "Proveedor o camaronera;Camaronera Sur", "Camarones contados;2",
+                         "Mediano (8 – 13 cm);1;50 %",
+                         "DETALLE POR CAMARÓN", "N.º;Longitud (cm);Tamaño;Observación", "2;10,2;Mediano;"):
+            self.assertIn(expected, lines)
+        self.assertNotIn("track-", text)
+
+    def test_detail_page_of_a_camera_lot_shows_no_photo(self):
+        ProcessingAttempt.objects.filter(analysis=self.analysis).update(snapshot_path="snapshots/x.jpg")
+        supervisor = User.objects.create_user("sup", password="password", role=User.Role.SUPERVISOR)
+        client = Client()
+        client.force_login(supervisor)
+        html = client.get(f"/history/{self.analysis.pk}/").content.decode()
+        self.assertIn("Conteo por tamaño", html)
+        self.assertIn("Clasificación por talla", html)  # tres secciones en vez del listado camarón por camarón
+        self.assertIn('class="size-class size-mediano"', html)
+        self.assertIn("8 – 13 cm", html)
+        self.assertNotIn("Detalle por camarón", html)
+        self.assertIn("Datos del lote", html)
+        self.assertNotIn('class="snapshot"', html)
+        self.assertNotIn("Imagen analizada", html)

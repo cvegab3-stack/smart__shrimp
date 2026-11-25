@@ -34,7 +34,8 @@ def analysis_payload(analysis: AnalysisSession) -> dict:
         "model_mode": analysis.model_mode, "model_status": analysis.model_status,
         "shrimp_count": analysis.shrimp_count, "rejected_count": analysis.rejected_count,
         "error_code": analysis.error_code, "error_message": analysis.error_message,
-        "created_at": analysis.created_at, **describe(analysis.error_code),
+        "created_at": analysis.created_at, "lot": analysis.lot_rows, "expected_count": analysis.expected_count,
+        **describe(analysis.error_code),
     }
 
 

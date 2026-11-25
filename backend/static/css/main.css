@@ -256,3 +256,33 @@ button,input,select,textarea{font:inherit} button,a{touch-action:manipulation} b
 .dropzone-file{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;min-width:0}
 .dropzone-file[hidden]{display:none}
 .dropzone-file-name{min-width:0;overflow-wrap:anywhere}
+
+/* Nuevo análisis: elegir foto o conteo de lote, datos del lote y contador en vivo */
+.mode-choice{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mode-choice-page{max-width:850px;margin:0 auto}
+.mode-card{display:grid;text-decoration:none;justify-items:center;gap:8px;padding:28px 18px;border:2px solid #dfedf1;border-radius:var(--radius);background:#f5fbfc;color:var(--ink);text-align:center;font:inherit;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.mode-card:hover:not([aria-disabled="true"]),.mode-card:focus-visible{border-color:var(--teal);background:#eaf7f8;outline:none}
+.mode-card[disabled],.mode-card[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
+.mode-card strong{font-size:18px}.mode-card span:not(.mode-icon){color:var(--muted);font-size:14px}
+.mode-icon{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:#dcf0f3;color:var(--teal)}
+.mode-icon svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.lot-more{border:1px solid #dfedf1;border-radius:14px;padding:12px 14px}.lot-more summary{cursor:pointer;font-weight:800;color:var(--teal)}.lot-more .form-grid{margin-top:14px}
+.lot-more textarea{width:100%;font:inherit}
+.lot-strip{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:10px 14px;margin-bottom:12px;border-radius:12px;background:#0b2a4a;color:#fff;font-size:14px}
+.live-counter{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}.live-counter strong{font-size:44px;line-height:1;color:var(--teal)}.live-counter span{color:var(--muted);font-weight:700}
+.lot-info{margin-bottom:24px}.lot-details{margin:14px 0}
+@media(max-width:560px){.mode-choice{grid-template-columns:1fr}}
+
+/* Detalle de un lote con cámara: clasificación por talla en tres tarjetas (pequeño, mediano, grande) */
+.size-classes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.size-class{position:relative;padding:18px 18px 16px;border-radius:16px;background:color-mix(in srgb,var(--box,#8b9aa8) 7%,white);border:1px solid color-mix(in srgb,var(--box,#8b9aa8) 30%,white);overflow:hidden}
+.size-class:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--box,#8b9aa8)}
+.size-class header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 10px}
+.size-class-name{font-weight:800;font-size:17px;color:var(--navy)}
+.size-class-range{font-size:13px;font-weight:700;color:var(--muted);padding:2px 10px;border-radius:999px;background:white;border:1px solid var(--line)}
+.size-class-count{display:flex;align-items:baseline;gap:8px;margin:14px 0 10px}.size-class-count strong{font-size:40px;line-height:1;color:var(--navy)}.size-class-count span{color:var(--muted);font-weight:700}
+.size-class-bar{height:8px;border-radius:999px;background:color-mix(in srgb,var(--box,#8b9aa8) 15%,white);overflow:hidden}.size-class-bar span{display:block;height:100%;border-radius:999px;background:var(--box,#8b9aa8)}
+.size-class-percent{margin:6px 0 12px;font-size:13px;font-weight:700;color:var(--muted)}
+.size-class dl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--box,#8b9aa8) 25%,white)}
+.size-class dt{font-size:12px;color:var(--muted)}.size-class dd{margin:2px 0 0;font-weight:800;color:var(--ink);font-size:14px}
+.size-class-total{margin:16px 0 0;color:var(--muted)}.size-class-total strong{color:var(--navy)}

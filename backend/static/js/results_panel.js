@@ -35,6 +35,9 @@
     const head = el("div", "result-total"); head.append(el("strong", "", String(summary.total)), el("span", "", summary.total === 1 ? "camarón detectado" : "camarones detectados"));
     if (elapsedMs !== undefined) head.append(el("small", "result-time", `Analizado en ${(elapsedMs / 1000).toLocaleString("es-EC", { maximumFractionDigits: 1 })} s`));
     parts.push(head);
+    if (summary.lot?.length) { // datos del lote registrados por el operador + peso promedio calculado
+      const list = el("dl", "detail-grid lot-details"); summary.lot.forEach(({ label, value }) => { const item = el("div", "detail-item"); item.append(el("dt", "", label), el("dd", "", value)); list.append(item); });
+      parts.push(list); }
     if (summary.total) { // los contadores por tamaño solo tienen sentido si hubo camarones
       const counts = el("div", "size-counts"); summary.counts.forEach(({ key, name, count }) => { const chip = el("span", `size-chip size-${key}`); chip.append(el("strong", "", String(count)), el("span", "", name)); counts.append(chip); });
       parts.push(counts); }
@@ -43,6 +46,9 @@
     if (summary.close_up) parts.push(el("div", "alert alert-amber", `${summary.close_up === 1 ? "1 camarón ocupa" : `${summary.close_up} camarones ocupan`} casi toda la imagen (foto demasiado cercana): se ${summary.close_up === 1 ? "cuenta" : "cuentan"}, pero su medida puede no ser fiable. Aleja la cámara hasta la posición de la calibración.`));
     if (summary.counts.some((c) => c.key === "fuera")) parts.push(el("p", "result-note", "«Fuera de rango»: su longitud no entra en ningún rango de tamaño de la calibración vigente."));
     if (summary.rejected_text) parts.push(el("p", "result-note", summary.rejected_text));
+    if (summary.source === "video") { // conteo de lote: solo el resumen; el detalle completo va en el informe PDF
+      parts.push(el("div", "alert alert-success", "Lote guardado. El informe completo (PDF) queda disponible para el supervisor."));
+      container.replaceChildren(...parts); return; }
     parts.push(snapshotFigure(summary));
     if (summary.rows.length) { const headers = ["Camarón", "Longitud", "Tamaño"]; if (summary.show_condition) headers.push("Condición visual"); if (summary.show_weight) headers.push("Peso estimado");
       const table = el("table", "data-table result-table"); const headRow = el("tr"); headers.forEach((label) => headRow.append(el("th", "", label)));

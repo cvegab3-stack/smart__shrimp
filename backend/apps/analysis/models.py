@@ -214,7 +214,50 @@ class AnalysisSession(models.Model):
     # ANALYSIS_IDLE_MINUTES sin actividad, se considera interrumpido (session_service.expire_stale_analyses).
     last_activity_at = models.DateTimeField(null=True, blank=True)
 
+    class ProductPresentation(models.TextChoices):
+        WHOLE = "entero", "Entero"
+        HEADLESS = "sin_cabeza", "Sin cabeza"
+        PEELED = "pelado", "Pelado"
+
+    # Datos del lote: los registra el operador antes de contar con la cámara. En una foto suelta quedan vacíos.
+    lot_date = models.DateField(null=True, blank=True)                     # fecha de registro del lote
+    lot_weight_kg = models.FloatField(null=True, blank=True)               # peso total del lote
+    supplier = models.CharField(max_length=120, blank=True)               # proveedor o camaronera
+    pond = models.CharField(max_length=60, blank=True)                    # piscina o estanque
+    harvest_date = models.DateField(null=True, blank=True)
+    product_presentation = models.CharField(max_length=16, choices=ProductPresentation.choices, blank=True)
+    declared_size = models.CharField(max_length=20, blank=True)           # talla del proveedor, p. ej. 21/25
+    expected_count = models.PositiveIntegerField(null=True, blank=True)
+    product_temperature_c = models.FloatField(null=True, blank=True)
+    notes = models.TextField(max_length=500, blank=True)
+
     objects = AnalysisSessionQuerySet.as_manager()
+
+    @property
+    def lot_rows(self) -> list[dict]:
+        """Datos del lote rellenados, como pares «etiqueta / valor» listos para mostrar (vacío en fotos sueltas)."""
+        rows = []
+        if self.lot_date:
+            rows.append(("Fecha de registro", self.lot_date.strftime("%d/%m/%Y")))
+        if self.lot_weight_kg is not None:
+            rows.append(("Peso del lote", f"{_num(self.lot_weight_kg)} kg"))
+        if self.supplier:
+            rows.append(("Proveedor o camaronera", self.supplier))
+        if self.pond:
+            rows.append(("Piscina o estanque", self.pond))
+        if self.harvest_date:
+            rows.append(("Fecha de cosecha", self.harvest_date.strftime("%d/%m/%Y")))
+        if self.product_presentation:
+            rows.append(("Presentación", self.get_product_presentation_display()))
+        if self.declared_size:
+            rows.append(("Talla declarada", self.declared_size))
+        if self.expected_count is not None:
+            rows.append(("Cantidad esperada", str(self.expected_count)))
+        if self.product_temperature_c is not None:
+            rows.append(("Temperatura del producto", f"{_num(self.product_temperature_c)} °C"))
+        if self.notes:
+            rows.append(("Observaciones", self.notes))
+        return [{"label": label, "value": value} for label, value in rows]
 
 
 class ProcessingAttempt(models.Model):

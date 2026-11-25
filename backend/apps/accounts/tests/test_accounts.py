@@ -472,3 +472,37 @@ class PasswordRulesDisplayTests(TestCase):
         client.force_login(admin)
         self.assertContains(client.get("/users/"), 'data-password-rules="12"')
         self.assertContains(client.get("/accounts/profile/"), "al menos 12 caracteres")
+
+
+from django.test import TestCase as _TestCase, override_settings as _override_settings  # noqa: E402
+
+from apps.accounts.models import User as _User  # noqa: E402
+
+
+class DevLoginShortcutTests(_TestCase):
+    """Ingreso temporal de desarrollo: admin / admin en cualquier perfil (DEV_LOGIN_ANY_ROLE)."""
+
+    def post(self, role, password="admin"):
+        return self.client.post(f"/accounts/login/?role={role}", {"username": "admin", "password": password})
+
+    @_override_settings(DEV_LOGIN_ANY_ROLE=True, DEBUG=True)
+    def test_admin_admin_enters_every_profile_with_that_role(self):
+        for role in _User.Role.values:
+            self.client.logout()
+            self.assertRedirects(self.post(role), "/", fetch_redirect_response=False)
+            self.assertEqual(_User.objects.get(pk=self.client.session["_auth_user_id"]).role, role)
+
+    @_override_settings(DEV_LOGIN_ANY_ROLE=True, DEBUG=True)
+    def test_wrong_password_does_not_use_the_shortcut(self):
+        self.assertEqual(self.post("operador", password="otra").status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    @_override_settings(DEV_LOGIN_ANY_ROLE=False)
+    def test_shortcut_is_off_unless_enabled(self):
+        self.assertEqual(self.post("operador").status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    @_override_settings(DEV_LOGIN_ANY_ROLE=True, DEBUG=False)
+    def test_shortcut_never_works_without_debug(self):
+        self.assertEqual(self.post("operador").status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
