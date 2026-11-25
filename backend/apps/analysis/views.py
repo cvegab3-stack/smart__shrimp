@@ -6,7 +6,8 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q, Sum
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -45,16 +46,40 @@ def dashboard_view(request):
     return render(request, "analysis/dashboard.html", context)
 
 
+# Página de cada tipo de análisis (la elección está en «Nuevo análisis»).
+SOURCE_PAGES = {AnalysisSession.Source.IMAGE: "new-analysis-image", AnalysisSession.Source.VIDEO: "new-analysis-camera"}
+
+
+def _calibration_context() -> dict:
+    return {"calibration": Calibration.objects.filter(is_active=True).first()}
+
+
 @login_required
 @role_required(User.Role.OPERATOR)
-def live_session_view(request):
-    """Sirve el flujo de lote, imagen o captura de cámara.
+def new_analysis_view(request):
+    """«Nuevo análisis»: solo se elige el tipo, foto de un camarón o conteo de lote con cámara.
 
-    Con ?reintentar=<id> abre un lote propio con error directamente en el reintento (llega desde "Mis lotes").
+    Con ?reintentar=<id> (llega desde «Mis lotes») lleva a la página del tipo de ese lote, ya en el reintento.
     """
-    calibration = Calibration.objects.filter(is_active=True).first()
+    retry_id = request.GET.get("reintentar")
+    if retry_id:
+        try:
+            analysis = AnalysisSession.objects.get(pk=retry_id, operator=request.user)
+        except (AnalysisSession.DoesNotExist, DjangoValidationError, ValueError):  # ajeno, inexistente o mal formado
+            return render(request, "analysis/new_analysis.html", {"retry_missing": True, **_calibration_context()})
+        return redirect(f"{reverse(SOURCE_PAGES[analysis.source])}?reintentar={analysis.pk}")
+    return render(request, "analysis/new_analysis.html", _calibration_context())
+
+
+@login_required
+@role_required(User.Role.OPERATOR)
+def live_session_view(request, source: str):
+    """Flujo de un tipo de análisis: foto de un camarón (imagen) o conteo de lote con cámara (video).
+
+    Con ?reintentar=<id> abre un lote propio con error de ese tipo directamente en el reintento.
+    """
     context = {
-        "calibration": calibration,
+        **_calibration_context(), "source": source,
         "max_image_bytes": int(settings.ANALYSIS_MAX_IMAGE_MB * 1024 * 1024),
         "min_image_side": settings.ANALYSIS_MIN_IMAGE_SIDE,
     }
@@ -63,7 +88,7 @@ def live_session_view(request):
         expire_stale_analyses()
         try:
             analysis = AnalysisSession.objects.select_related("calibration").get(
-                pk=retry_id, operator=request.user, status=AnalysisSession.Status.ERROR,
+                pk=retry_id, operator=request.user, status=AnalysisSession.Status.ERROR, source=source,
             )
         except (AnalysisSession.DoesNotExist, DjangoValidationError, ValueError):  # ajeno, inexistente o mal formado
             context["retry_missing"] = True

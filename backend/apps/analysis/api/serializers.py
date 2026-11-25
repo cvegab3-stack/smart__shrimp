@@ -1,15 +1,55 @@
 """Serializadores de entrada y salida de análisis."""
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.analysis.models import AnalysisSession, Calibration, ThresholdProfile
+from apps.analysis.services.session_service import LOT_FIELDS
 
 
 class AnalysisCreateSerializer(serializers.Serializer):
-    """Valida lote y origen de una sesión nueva."""
+    """Valida una sesión nueva.
 
-    batch_code = serializers.CharField(max_length=100)
+    - Cámara (video): conteo de un lote. Código, fecha de registro y peso son obligatorios; el resto es opcional.
+    - Imagen: foto de un camarón suelto. No lleva datos de lote; si no se manda código, se genera uno (FOTO-…).
+    """
+
+    batch_code = serializers.CharField(max_length=100, required=False, allow_blank=True)
     source = serializers.ChoiceField(choices=AnalysisSession.Source.choices)
+    lot_date = serializers.DateField(required=False, allow_null=True)
+    lot_weight_kg = serializers.FloatField(min_value=0.001, max_value=100000, required=False, allow_null=True)
+    supplier = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    pond = serializers.CharField(max_length=60, required=False, allow_blank=True)
+    harvest_date = serializers.DateField(required=False, allow_null=True)
+    product_presentation = serializers.ChoiceField(choices=AnalysisSession.ProductPresentation.choices, required=False,
+                                                   allow_blank=True)
+    declared_size = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    expected_count = serializers.IntegerField(min_value=1, max_value=1000000, required=False, allow_null=True)
+    product_temperature_c = serializers.FloatField(min_value=-40, max_value=60, required=False, allow_null=True)
+    notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        code = (attrs.get("batch_code") or "").strip()
+        if attrs["source"] == AnalysisSession.Source.IMAGE:
+            stamp = timezone.localtime().strftime("%Y%m%d-%H%M%S")
+            return {"batch_code": code or f"FOTO-{stamp}", "source": attrs["source"]}
+        errors = {}
+        if not code:
+            errors["batch_code"] = "Escribe el código o nombre del lote."
+        if attrs.get("lot_date") is None:
+            errors["lot_date"] = "Indica la fecha de registro del lote."
+        if attrs.get("lot_weight_kg") is None:
+            errors["lot_weight_kg"] = "Indica el peso del lote en kg."
+        harvest, registered = attrs.get("harvest_date"), attrs.get("lot_date")
+        if harvest and registered and harvest > registered:
+            errors["harvest_date"] = "La fecha de cosecha no puede ser posterior a la de registro."
+        if errors:
+            raise serializers.ValidationError(errors)
+        lot = {field: attrs[field] for field in LOT_FIELDS if attrs.get(field) not in (None, "")}
+        for field in ("supplier", "pond", "declared_size", "notes"):
+            if field in lot:
+                lot[field] = lot[field].strip()
+        return {"batch_code": code, "source": attrs["source"], **lot}
 
 
 class FrameInputSerializer(serializers.Serializer):

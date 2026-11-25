@@ -9,7 +9,7 @@ import re
 
 from django.urls import reverse
 
-from apps.analysis.models import AnalysisSession, ProcessingAttempt
+from apps.analysis.models import AnalysisSession, ProcessingAttempt, _num
 from apps.results.models import ShrimpRecord
 
 SIZE_NAMES = {"pequeno": "Pequeño", "mediano": "Mediano", "grande": "Grande"}
@@ -44,6 +44,44 @@ def _rejected_text(count: int, source: str) -> str:
     # Imágenes analizadas antes de que el primer plano dejara de descartarse en modo imagen.
     return (f"{count} {noun} por ocupar más del 45 % de la imagen (foto demasiado cercana). "
             "Vuelve a analizar la imagen: ahora los primeros planos se cuentan con un aviso.")
+
+
+def _lot_summary(analysis: AnalysisSession, total: int) -> list[dict]:
+    """Datos del lote más lo que se calcula con su peso y el conteo (solo cuando el lote ya está contado)."""
+    rows = list(analysis.lot_rows)
+    if analysis.status != AnalysisSession.Status.FINISHED or not rows:
+        return rows
+    if analysis.lot_weight_kg and total:
+        rows.append({"label": "Peso promedio por camarón",
+                     "value": f"{_num(analysis.lot_weight_kg * 1000 / total)} g (peso del lote ÷ camarones contados)"})
+        rows.append({"label": "Camarones por kilo", "value": _num(total / analysis.lot_weight_kg)})
+    if analysis.expected_count is not None:
+        difference = total - analysis.expected_count
+        rows.append({"label": "Diferencia con lo esperado",
+                     "value": "Coincide" if not difference else f"{difference:+d} camarones"})
+    return rows
+
+
+def _size_classes(analysis: AnalysisSession, records, rows) -> list[dict]:
+    """Clasificación por talla (pequeño, mediano, grande y, si hay, fuera de rango / sin medida): rango de la
+    calibración, cantidad, % del total y longitudes. Sustituye al listado camarón por camarón en los lotes."""
+    bands = {band["key"]: band["text"] for band in analysis.calibration.size_bands}
+    total = len(rows) or 1
+    classes = []
+    for key, name in [*SIZE_NAMES.items(), ("fuera", OUT_OF_RANGE), ("sin_medida", NO_LENGTH)]:
+        lengths = [record.length_cm for record, row in zip(records, rows)
+                   if row["size"] == name and record.length_cm is not None]
+        count = sum(1 for row in rows if row["size"] == name)
+        if key not in SIZE_NAMES and not count:
+            continue  # «fuera de rango» y «sin medida» solo aparecen si hay alguno
+        classes.append({
+            "key": key, "name": name, "range": bands.get(key, "Fuera de los rangos de la calibración"),
+            "count": count, "percent": round(count * 100 / total),
+            "length_avg": _cm(sum(lengths) / len(lengths)) if lengths else None,
+            "length_min": _cm(min(lengths)) if lengths else None,
+            "length_max": _cm(max(lengths)) if lengths else None,
+        })
+    return classes
 
 
 def build_summary(analysis: AnalysisSession) -> dict:
@@ -104,4 +142,6 @@ def build_summary(analysis: AnalysisSession) -> dict:
                          if attempt and attempt.snapshot_path else None),
         "boxes": boxes,
         "source": analysis.source,  # "imagen" o "video"
+        "lot": _lot_summary(analysis, len(rows)),  # datos del lote (vacío en fotos sueltas)
+        "size_classes": _size_classes(analysis, records, rows),
     }

@@ -51,18 +51,27 @@ def _failure_details(analysis: AnalysisSession, exc: vision_client.VisionService
     return {"analysis_id": str(analysis.pk), "reason": exc.code, "detail": str(exc)[:300], **extra}
 
 
+# Datos del lote que se guardan en AnalysisSession (solo en el conteo con cámara; ver AnalysisCreateSerializer).
+LOT_FIELDS = ("lot_date", "lot_weight_kg", "supplier", "pond", "harvest_date", "product_presentation",
+              "declared_size", "expected_count", "product_temperature_c", "notes")
+
+
 @transaction.atomic
-def start_analysis(*, batch_code: str, source: str, operator, ip_address: str | None = None) -> AnalysisSession:
-    """Crea el análisis en curso y solicita apertura en M3."""
+def start_analysis(*, batch_code: str, source: str, operator, ip_address: str | None = None,
+                   **lot_data) -> AnalysisSession:
+    """Crea el análisis en curso y solicita apertura en M3. `lot_data`: datos del lote (ver LOT_FIELDS)."""
     if source not in AnalysisSession.Source.values:
         raise ValueError("Origen de análisis no válido.")
     if not batch_code.strip():
         raise ValueError("El código de lote es obligatorio.")
+    unknown = set(lot_data) - set(LOT_FIELDS)
+    if unknown:
+        raise ValueError(f"Datos de lote no reconocidos: {', '.join(sorted(unknown))}.")
     calibration = get_active_calibration()
     thresholds = get_current_threshold_profile()
     analysis = AnalysisSession.objects.create(
         batch_code=batch_code.strip(), operator=operator, source=source,
-        calibration=calibration, threshold_profile=thresholds, last_activity_at=timezone.now(),
+        calibration=calibration, threshold_profile=thresholds, last_activity_at=timezone.now(), **lot_data,
     )
     attempt = ProcessingAttempt.objects.create(analysis=analysis, attempt_number=1)
     try:

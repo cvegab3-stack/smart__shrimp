@@ -24,6 +24,7 @@ La primera vez, prepara el entorno. Tarda un rato y al final debería decir `CUD
 .\scripts\setup_windows.ps1
 ```
 
+
 Si PowerShell no te deja ejecutar scripts, corre antes `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`. Solo afecta a esa ventana.
 
 Después abre dos ventanas de PowerShell y déjalas abiertas mientras uses la aplicación:

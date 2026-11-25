@@ -321,7 +321,7 @@ class CalibrationScaleLogicTests(TestCase):
         self.assertNotContains(page, "Pequeno<")
         self.assertNotContains(page, "poco realista")
         client.force_login(self.operator)
-        page = client.get("/analysis/new/")
+        page = client.get("/analysis/new/foto/")
         self.assertContains(page, "<dt>Pequeño</dt><dd>0 – 8 cm</dd>")  # antes el 0 se mostraba como "—"
 
 

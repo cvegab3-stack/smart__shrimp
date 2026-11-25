@@ -291,7 +291,7 @@ class AnalysisFlowApiTests(TestCase):
         self.frame(analysis, side_effect=VisionServiceError("timeout"))
         client = Client()
         client.force_login(self.operator)
-        html = client.get(f"/analysis/new/?reintentar={analysis.pk}").content.decode()
+        html = client.get(f"/analysis/new/?reintentar={analysis.pk}", follow=True).content.decode()
         self.assertIn('id="retry-analysis-data"', html)
         client.force_login(self.other)
         html = client.get(f"/analysis/new/?reintentar={analysis.pk}").content.decode()
@@ -334,3 +334,96 @@ class AdministratorFlowTests(TestCase):
             self.assertEqual(api.get("/api/vision/health/").data, {"available": False})
         api.force_authenticate(self.operator)
         self.assertEqual(api.get("/api/vision/health/").status_code, 403)
+
+
+class LotRegistrationTests(TestCase):
+    """Nuevo análisis: foto suelta sin datos de lote; conteo con cámara con los datos del lote."""
+
+    def setUp(self):
+        self.operator = User.objects.create_user("operator", password="password", role=User.Role.OPERATOR)
+        admin = User.objects.create_user("admin", password="password", role=User.Role.ADMINISTRATOR)
+        create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=RANGES, actor=admin)
+        create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
+        self.api = APIClient()
+        self.api.force_authenticate(self.operator)
+
+    def post(self, body):
+        with patch("apps.analysis.services.session_service.vision_client.start_session", return_value={"ok": True}):
+            return self.api.post("/api/analyses/", body, format="json")
+
+    def test_photo_needs_no_lot_data_and_gets_an_automatic_code(self):
+        response = self.post({"source": "imagen", "lot_weight_kg": 5})  # datos de lote en una foto: se ignoran
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["batch_code"].startswith("FOTO-"))
+        self.assertEqual(response.data["lot"], [])
+        self.assertIsNone(AnalysisSession.objects.get().lot_weight_kg)
+
+    def test_camera_count_requires_code_date_and_weight(self):
+        response = self.post({"source": "video"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(set(response.data), {"batch_code", "lot_date", "lot_weight_kg"})
+        self.assertFalse(AnalysisSession.objects.exists())
+
+    def test_camera_count_saves_the_lot_data(self):
+        response = self.post({"source": "video", "batch_code": " L-20261124-0930 ", "lot_date": "2026-11-24",
+                              "lot_weight_kg": 12.5, "supplier": "Camaronera Sur", "harvest_date": "2026-11-23",
+                              "product_presentation": "entero", "expected_count": 400, "notes": ""})
+        self.assertEqual(response.status_code, 201)
+        analysis = AnalysisSession.objects.get()
+        self.assertEqual((analysis.batch_code, analysis.lot_weight_kg, analysis.supplier, analysis.expected_count),
+                         ("L-20261124-0930", 12.5, "Camaronera Sur", 400))
+        labels = [row["label"] for row in response.data["lot"]]
+        self.assertEqual(labels[:2], ["Fecha de registro", "Peso del lote"])
+        self.assertIn({"label": "Presentación", "value": "Entero"}, response.data["lot"])
+
+    def test_harvest_after_registration_is_rejected(self):
+        response = self.post({"source": "video", "batch_code": "L-1", "lot_date": "2026-11-20",
+                              "lot_weight_kg": 3, "harvest_date": "2026-11-21"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("harvest_date", response.data)
+
+    def test_finished_lot_summary_includes_average_weight_and_count_per_kilo(self):
+        from apps.results.services.presentation_service import build_summary
+        self.post({"source": "video", "batch_code": "L-2", "lot_date": "2026-11-24", "lot_weight_kg": 2,
+                   "expected_count": 90})
+        analysis = AnalysisSession.objects.get()
+        analysis.status = AnalysisSession.Status.FINISHED
+        analysis.save(update_fields=("status",))
+        with patch("apps.results.services.presentation_service.ShrimpRecord.objects.of_current_attempt",
+                   return_value=[MagicMock(track_id=f"track-{n}", length_cm=None, size_category=None,
+                                           visual_condition="no_concluyente", estimated_weight_g=None)
+                                 for n in range(100)]):
+            lot = {row["label"]: row["value"] for row in build_summary(analysis)["lot"]}
+        self.assertEqual(lot["Peso promedio por camarón"], "20 g (peso del lote ÷ camarones contados)")
+        self.assertEqual(lot["Camarones por kilo"], "50")
+        self.assertEqual(lot["Diferencia con lo esperado"], "+10 camarones")
+
+
+class NewAnalysisPagesTests(TestCase):
+    """«Nuevo análisis» solo ofrece elegir; foto y cámara tienen cada una su página."""
+
+    def setUp(self):
+        self.operator = User.objects.create_user("operator", password="password", role=User.Role.OPERATOR)
+        admin = User.objects.create_user("admin", password="password", role=User.Role.ADMINISTRATOR)
+        create_calibration(reference_length_cm=10, reference_pixels=500, size_ranges=RANGES, actor=admin)
+        create_threshold_profile(detection_confidence=0.5, visual_condition_confidence=0.5, actor=admin)
+        self.client.force_login(self.operator)
+
+    def test_choice_page_only_links_to_photo_and_camera(self):
+        html = self.client.get("/analysis/new/").content.decode()
+        self.assertIn('href="/analysis/new/foto/"', html)
+        self.assertIn('href="/analysis/new/camara/"', html)
+        self.assertNotIn('id="analysis-create-form"', html)
+
+    def test_each_page_is_fixed_to_its_type(self):
+        self.assertContains(self.client.get("/analysis/new/foto/"), 'data-source="imagen"')
+        self.assertContains(self.client.get("/analysis/new/camara/"), 'data-source="video"')
+
+    def test_retry_link_goes_to_the_page_of_the_lot_type(self):
+        with patch("apps.analysis.services.session_service.vision_client.start_session",
+                   side_effect=VisionServiceError("down", code="vision_unavailable")):
+            analysis = start_analysis(batch_code="L-9", source="video", operator=self.operator,
+                                      lot_date=timezone.localdate(), lot_weight_kg=4)
+        response = self.client.get(f"/analysis/new/?reintentar={analysis.pk}")
+        self.assertRedirects(response, f"/analysis/new/camara/?reintentar={analysis.pk}")
+        self.assertContains(self.client.get(response["Location"]), 'id="retry-analysis-data"')
