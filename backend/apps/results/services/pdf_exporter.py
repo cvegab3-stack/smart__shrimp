@@ -8,7 +8,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from apps.results.services.lot_pdf import export_lot_pdf
-from apps.results.services.report_service import VISUAL_DISCLAIMER, flow_rows
+from apps.results.services.report_service import flow_rows
 
 HEADER_BLUE = colors.HexColor("#0B2A4A")
 GRID_COLOR = colors.HexColor("#B8C8D2")

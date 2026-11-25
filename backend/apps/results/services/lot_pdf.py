@@ -9,7 +9,7 @@ Usa solo las fuentes estándar de PDF (Helvetica), que se ven igual en cualquier
 import io
 
 from django.utils import timezone
-from reportlab.graphics.shapes import Drawing, Rect, String
+from reportlab.graphics.shapes import Drawing, Rect
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import letter
