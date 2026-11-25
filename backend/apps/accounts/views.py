@@ -1,6 +1,5 @@
 """Vistas HTML de autenticación y perfil."""
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -14,26 +13,6 @@ from .models import User
 from .services import authenticate_user, change_own_password, record_event
 
 
-# TEMPORAL (solo desarrollo): con DEV_LOGIN_ANY_ROLE = True, «admin» / «admin» entra en cualquier perfil con una
-# cuenta de prueba de ese rol (dev_operador, dev_supervisor…). Se activa solo en config/settings/local.py y nunca
-# con DEBUG apagado. Para volver al ingreso normal: poner DEV_LOGIN_ANY_ROLE = False (o borrar la línea).
-DEV_LOGIN_CREDENTIALS = ("admin", "admin")
-
-
-def _dev_login_requested(request) -> bool:
-    enabled = getattr(settings, "DEV_LOGIN_ANY_ROLE", False) and settings.DEBUG
-    credentials = (request.POST.get("username", "").strip(), request.POST.get("password", ""))
-    return bool(enabled) and credentials == DEV_LOGIN_CREDENTIALS
-
-
-def _dev_user(role: str) -> User:
-    user, created = User.objects.get_or_create(username=f"dev_{role}", defaults={"role": role, "is_active": True})
-    if created:
-        user.set_unusable_password()  # solo se entra con el atajo; no tiene contraseña propia
-        user.save(update_fields=("password",))
-    return user
-
-
 @require_http_methods(["GET", "POST"])
 def login_view(request):
     """Inicia sesión solo por el perfil del rol de la cuenta y registra intentos fallidos o exitosos."""
@@ -42,10 +21,6 @@ def login_view(request):
     message = ""
     role = request.GET.get("role")
     # Sin un perfil válido la plantilla muestra la selección de perfiles: no se autentica nada.
-    if request.method == "POST" and role in User.Role.values and _dev_login_requested(request):
-        login(request, _dev_user(role), backend="django.contrib.auth.backends.ModelBackend")
-        record_event("login.dev_shortcut", request.user, {"role": role}, request.META.get("REMOTE_ADDR"))
-        return redirect("dashboard")
     if request.method == "POST" and role in User.Role.values:
         user, error = authenticate_user(
             request.POST.get("username", "").strip(), request.POST.get("password", ""),
